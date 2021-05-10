@@ -2,8 +2,17 @@ use bevy::prelude::*;
 
 pub struct DiagText;
 
-pub fn spawn_ui(commands: &mut Commands, asset_server: &Res<AssetServer>) {
-    let font_path = "FiraCode-Medium.ttf";
+pub struct FontMaterials {
+    debug_font: Handle<Font>
+}
+
+pub fn setup_ui_materials(commands: &mut Commands, asset_server: &Res<AssetServer>) {
+    commands.insert_resource(FontMaterials {
+        debug_font: asset_server.load("FiraCode-Medium.ttf"),
+    });
+}
+
+pub fn spawn_ui(commands: &mut Commands, fonts: &Res<FontMaterials>) {
     commands
         .spawn_bundle(TextBundle {
             style: Style {
@@ -23,7 +32,7 @@ pub fn spawn_ui(commands: &mut Commands, asset_server: &Res<AssetServer>) {
                     TextSection {
                         value: "No entity selected".to_string(),
                         style: TextStyle {
-                            font: asset_server.load(font_path.clone()),
+                            font: fonts.debug_font.clone(),
                             font_size: 10.0,
                             color: Color::WHITE,
                         },

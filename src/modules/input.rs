@@ -9,6 +9,7 @@ pub fn handle_mouse_click(
     mut query_selected: Query<(Entity, &mut player::Animation), (With<player::Actor>, With<player::Selected>)>,
     mut query_text: Query<&mut Text, With<ui::DiagText>>,
     mut commands: Commands,
+    helper_materials: Res<super::helpers::HelperMaterials>,
     mouse_input: Res<Input<MouseButton>>,
     windows: Res<Windows>
 ) {
@@ -42,7 +43,7 @@ pub fn handle_mouse_click(
 
     let mut clicked_entity = None;
     for (entity, transform) in query.iter_mut() {
-        if utils::is_actor_clicked(&transform.translation, click_pos) {
+        if utils::is_point_in_rect(&click_pos, &transform.translation, 16.0) {
             clicked_entity = Some(entity)
         }
     }
@@ -60,6 +61,8 @@ pub fn handle_mouse_click(
             commands.entity(selected).insert(player::TargetPosition::new(click_pos.x, click_pos.y, 1.0));
             animation.act_frame_index = 0;
             animation.sprite_indexes = vec![0, 1, 0, 2];
+
+            super::helpers::spawn_targetpos_helper(&mut commands, &helper_materials, Vec2::new(click_pos.x - 16.0, click_pos.y - 16.0), selected.clone());
         }
     }
 }

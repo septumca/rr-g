@@ -1,16 +1,42 @@
 use bevy::prelude::*;
 
 pub struct SelectedHelper {}
+pub struct TargetPosition {
+    pub player: Entity
+}
 
-pub fn spawn_helpers(commands: &mut Commands, asset_server: &Res<AssetServer>, materials: &mut ResMut<Assets<ColorMaterial>>) {
-    let selected_texture_handle = asset_server.load("selectbox.png");
+
+pub struct HelperMaterials {
+    selected: Handle<ColorMaterial>,
+    target: Handle<ColorMaterial>
+}
+
+pub fn setup_helper_materials(commands: &mut Commands, asset_server: &Res<AssetServer>, materials: &mut ResMut<Assets<ColorMaterial>>) {
+    commands.insert_resource(HelperMaterials {
+        selected: materials.add(asset_server.load("selectbox.png").into()),
+        target: materials.add(asset_server.load("targetpos.png").into()),
+    });
+}
+
+pub fn spawn_selected_helper(commands: &mut Commands, helper_materials: &Res<HelperMaterials>) {
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(selected_texture_handle.into()),
+            material: helper_materials.selected.clone(),
             sprite: Sprite::new(Vec2::new(34.0, 34.0)),
             ..Default::default()
         })
         .insert(SelectedHelper {});
+}
+
+pub fn spawn_targetpos_helper(commands: &mut Commands, helper_materials: &Res<HelperMaterials>, position: Vec2, player: Entity) {
+    commands
+        .spawn_bundle(SpriteBundle {
+            material: helper_materials.target.clone(),
+            sprite: Sprite::new(Vec2::new(32.0, 32.0)),
+            transform: Transform::from_translation(Vec3::new(position.x + 16.0, position.y + 16.0, 0.3)),
+            ..Default::default()
+        })
+        .insert(TargetPosition { player });
 }
 
 pub fn update_selected_helper(

@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+pub struct PlayerTextures(Handle<TextureAtlas>);
+
 pub type AnimationTimer = Timer;
 
 pub struct Animation {
@@ -29,17 +31,30 @@ pub struct Actor {}
 
 pub enum ActorState {
     Idle,
-    Running,
-    Diving,
-    Recovering
+    // Running,
+    // Diving,
+    // Recovering
 }
 pub struct Selected {}
 
 
-pub fn spawn_player(texture_atlas_handle: &Handle<TextureAtlas>, commands: &mut Commands, position: Vec3) {
+pub fn setup_player_sprites(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>
+) {
+    let texture_handle = asset_server.load("rr2.png");
+    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(32.0, 32.0), 6, 1);
+    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+
+    commands.insert_resource(PlayerTextures(texture_atlas_handle));
+}
+
+
+pub fn spawn_player(commands: &mut Commands, player_sprites: &Res<PlayerTextures>, position: Vec3) {
     commands
         .spawn_bundle(SpriteSheetBundle {
-            texture_atlas: texture_atlas_handle.clone(),
+            texture_atlas: player_sprites.0.clone(),
             transform: Transform::from_translation(position),
             ..Default::default()
         })
@@ -49,12 +64,22 @@ pub fn spawn_player(texture_atlas_handle: &Handle<TextureAtlas>, commands: &mut 
         .insert(AnimationTimer::from_seconds(1.0/8.0, true));
 }
 
-pub fn player_movement(mut query: Query<(Entity, &TargetPosition, &mut Transform, &mut Animation, &mut TextureAtlasSprite), With<Actor>>, mut commands: Commands) {
+pub fn player_movement(
+    mut commands: Commands,
+    mut query: Query<(Entity, &TargetPosition, &mut Transform, &mut Animation, &mut TextureAtlasSprite), With<Actor>>,
+    query_tp_helper: Query<(Entity, &super::helpers::TargetPosition)>
+) {
     for (entity, target_position, mut transform, mut animation, mut sprite) in query.iter_mut() {
         if transform.translation.x == target_position.x && transform.translation.y == target_position.y {
             commands.entity(entity).remove::<TargetPosition> ();
             animation.act_frame_index = 0;
             animation.sprite_indexes = vec![0];
+
+            for (helper_entity, player_entity) in query_tp_helper.iter() {
+                if player_entity.player == entity {
+                    commands.entity(helper_entity).despawn();
+                }
+            }
             return;
         }
 
