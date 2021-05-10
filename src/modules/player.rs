@@ -67,7 +67,7 @@ pub fn spawn_player(commands: &mut Commands, player_sprites: &Res<PlayerTextures
 pub fn player_movement(
     mut commands: Commands,
     mut query: Query<(Entity, &TargetPosition, &mut Transform, &mut Animation, &mut TextureAtlasSprite), With<Actor>>,
-    query_tp_helper: Query<(Entity, &super::helpers::TargetPosition)>
+    query_tp_helper: Query<(Entity, &super::helpers::MovementHelper)>
 ) {
     for (entity, target_position, mut transform, mut animation, mut sprite) in query.iter_mut() {
         if transform.translation.x == target_position.x && transform.translation.y == target_position.y {
@@ -77,7 +77,7 @@ pub fn player_movement(
 
             for (helper_entity, player_entity) in query_tp_helper.iter() {
                 if player_entity.player == entity {
-                    commands.entity(helper_entity).despawn();
+                    commands.entity(helper_entity).despawn_recursive();
                 }
             }
             return;

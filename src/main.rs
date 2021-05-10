@@ -24,8 +24,8 @@ fn initialize_game(
     commands.spawn_bundle(UiCameraBundle::default());
 
     ui::spawn_ui(&mut commands, &fonts);
-    player::spawn_player(&mut commands, &player_sprites, Vec3::new(-150.0, 0.0, 1.0));
-    player::spawn_player(&mut commands, &player_sprites, Vec3::new(-150.0, 50.0, 1.0));
+    player::spawn_player(&mut commands, &player_sprites, Vec3::new(0.0, 0.0, 1.0));
+    player::spawn_player(&mut commands, &player_sprites, Vec3::new(-100.0, -200.0, 1.0));
     helpers::spawn_selected_helper(&mut commands, &helper_materiarls);
 }
 
