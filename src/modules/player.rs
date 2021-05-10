@@ -40,11 +40,7 @@ pub fn spawn_player(texture_atlas_handle: &Handle<TextureAtlas>, commands: &mut 
     commands
         .spawn_bundle(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.clone(),
-            transform: Transform {
-                rotation: Quat::IDENTITY,
-                translation: position,
-                scale: Vec3::splat(4.0)
-            },
+            transform: Transform::from_translation(position),
             ..Default::default()
         })
         .insert(Actor {})

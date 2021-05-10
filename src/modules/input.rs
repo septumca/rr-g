@@ -12,10 +12,22 @@ pub fn handle_mouse_click(
     mouse_input: Res<Input<MouseButton>>,
     windows: Res<Windows>
 ) {
+    let mouse_left_pressed = mouse_input.just_pressed(MouseButton::Left);
+    let mouse_right_pressed = mouse_input.just_pressed(MouseButton::Right);
+
+    if mouse_right_pressed {
+        for (prev_selected, _) in query_selected.iter_mut() {
+            commands.entity(prev_selected).remove::<player::Selected> ();
+            let mut text = query_text.single_mut().expect("Cannot access Diagnostic Text");
+            text.sections[0].value = format!("No entity selected");
+        }
+        return;
+    }
+
     let click_pos = windows
         .get_primary()
         .and_then(|win| -> Option<bevy::prelude::Vec2> {
-            if !mouse_input.just_pressed(MouseButton::Left) {
+            if !mouse_left_pressed {
                 return None;
             }
             win.cursor_position()
@@ -40,9 +52,8 @@ pub fn handle_mouse_click(
             commands.entity(prev_selected).remove::<player::Selected> ();
         }
         let clicked_entity = clicked_entity.unwrap();
-        for mut text in query_text.iter_mut() {
-            text.sections[0].value = format!("Selected Entity: {:?}", clicked_entity.clone());
-        }
+        let mut text = query_text.single_mut().expect("Cannot access Diagnostic Text");
+        text.sections[0].value = format!("Selected Entity: {:?}", clicked_entity);
         commands.entity(clicked_entity).insert(player::Selected {});
     } else {
         for (selected, mut animation) in query_selected.iter_mut() {

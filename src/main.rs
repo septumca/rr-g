@@ -1,24 +1,25 @@
 use bevy::prelude::*;
 mod modules;
 
-use modules::{ui, player, input, utils};
+use modules::{ui, player, input, utils, helpers};
 
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut materials: ResMut<Assets<ColorMaterial>>
 ) {
     let texture_handle = asset_server.load("rr2.png");
-    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(8.0, 8.0), 6, 1);
+    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(32.0, 32.0), 6, 1);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
 
-
     ui::spawn_ui(&mut commands, &asset_server);
     player::spawn_player(&texture_atlas_handle, &mut commands, Vec3::new(-150.0, 0.0, 1.0));
     player::spawn_player(&texture_atlas_handle, &mut commands, Vec3::new(-150.0, 50.0, 1.0));
+    helpers::spawn_helpers(&mut commands, &asset_server, &mut materials)
 }
 
 fn main() {
@@ -38,5 +39,6 @@ fn main() {
         .add_system(player::animate_sprite.system())
         .add_system(player::player_movement.system())
         .add_system(input::handle_mouse_click.system())
+        .add_system(helpers::update_selected_helper.system())
         .run();
 }
