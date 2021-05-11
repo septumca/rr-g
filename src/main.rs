@@ -1,13 +1,16 @@
 use bevy::prelude::*;
 mod modules;
 
-use modules::{ui, player, input, utils, helpers};
+use modules::{ui, player, input, utils, helpers, states, round};
+
+
+
 
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     texture_atlases: ResMut<Assets<TextureAtlas>>,
-    mut materials: ResMut<Assets<ColorMaterial>>
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     helpers::setup_helper_materials(&mut commands, &asset_server, &mut materials);
     player::setup_player_sprites(&mut commands, &asset_server, texture_atlases);
@@ -39,14 +42,39 @@ fn main() {
             resizable: false,
             ..Default::default()
         })
+        .add_state(states::AppState::Plan)
         .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1)))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_startup_stage("game_initialization", SystemStage::single(initialize_game.system()))
+        .add_system_set(
+            SystemSet::on_enter(states::AppState::Plan)
+                .with_system(states::state_change.system())
+                .with_system(helpers::cleanup_movement_helpers.system())
+                .with_system(player::cleanup_movement.system())
+        )
+        .add_system_set(
+            SystemSet::on_update(states::AppState::Plan)
+                .with_system(input::handle_mouse_click.system())
+                .with_system(input::handle_keyboard_input.system())
+                .with_system(helpers::update_selected_helper.system())
+        )
+        .add_system_set(
+            SystemSet::on_exit(states::AppState::Plan)
+                .with_system(helpers::deselect_all.system())
+        )
+        .add_system_set(
+            SystemSet::on_enter(states::AppState::Play)
+                .with_system(round::start_timer.system())
+                .with_system(states::state_change.system())
+        )
+        .add_system_set(
+            SystemSet::on_update(states::AppState::Play)
+                .with_system(player::animate_sprite.system())
+                .with_system(player::player_movement.system())
+                .with_system(round::update_timer.system())
+                .with_system(player::handle_player_state.system())
+        )
         .add_system(bevy::input::system::exit_on_esc_system.system())
-        .add_system(player::animate_sprite.system())
-        .add_system(player::player_movement.system())
-        .add_system(input::handle_mouse_click.system())
-        .add_system(helpers::update_selected_helper.system())
         .run();
 }

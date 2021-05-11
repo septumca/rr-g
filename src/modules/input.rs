@@ -4,12 +4,20 @@ use super::player;
 use super::ui;
 use super::utils;
 
+pub fn handle_keyboard_input(mut keyboard_input: ResMut<Input<KeyCode>>, mut app_state: ResMut<State<super::states::AppState>>) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        app_state.set(super::states::AppState::Play).unwrap();
+        keyboard_input.reset(KeyCode::Space); //according to https://bevy-cheatbook.github.io/programming/states.html#with-input
+    }
+}
+
 pub fn handle_mouse_click(
     mut query:  QuerySet<(
         Query<(Entity, &Transform), (With<player::Actor>, Without<player::Selected>)>,
-        Query<(Entity, &Transform, &mut player::Animation, Option<&mut player::TargetPosition>), (With<player::Actor>, With<player::Selected>)>
+        Query<(Entity, &Transform, &mut player::Actor, Option<&mut player::TargetPosition>), With<player::Selected>>,
     )>,
-    mut query_text: Query<&mut Text, With<ui::DiagText>>,
+    query_movement_helper: Query<(Entity, &super::helpers::MovementHelper)>,
+    mut query_text: Query<&mut Text, With<ui::SelectedText>>,
     mut commands: Commands,
     helper_materials: Res<super::helpers::HelperMaterials>,
     mouse_input: Res<Input<MouseButton>>,
@@ -22,7 +30,7 @@ pub fn handle_mouse_click(
         for (prev_selected, _, _, _) in query.q1_mut().iter_mut() {
             commands.entity(prev_selected).remove::<player::Selected> ();
             let mut text = query_text.single_mut().expect("Cannot access Diagnostic Text");
-            text.sections[0].value = format!("No entity selected");
+            super::ui::update_text(&mut text, format!("No entity selected"));
         }
         return;
     }
@@ -56,23 +64,33 @@ pub fn handle_mouse_click(
         }
         let clicked_entity = clicked_entity.unwrap();
         let mut text = query_text.single_mut().expect("Cannot access Diagnostic Text");
-        text.sections[0].value = format!("Selected Entity: {:?}", clicked_entity);
+        super::ui::update_text(&mut text, format!("Selected Entity: {:?}", clicked_entity));
         commands.entity(clicked_entity).insert(player::Selected {});
         return;
     }
 
-    for (selected, transform, mut animation, target_position) in query.q1_mut().iter_mut() {
+    for (selected, transform, mut actor, target_position) in query.q1_mut().iter_mut() {
         if target_position.is_none() {
             commands.entity(selected).insert(player::TargetPosition::new(click_pos.x, click_pos.y, 1.0));
-            animation.act_frame_index = 0;
-            animation.sprite_indexes = vec![0, 1, 0, 2];
-            super::helpers::spawn_movement_helper(
-                &mut commands,
-                &helper_materials,
-                Vec2::new(click_pos.x, click_pos.y),
-                Vec2::new(transform.translation.x, transform.translation.y),
-                selected.clone()
-            );
+            actor.state = player::ActorState::Running;
+        } else {
+            let mut target_position = target_position.unwrap();
+            target_position.x = click_pos.x;
+            target_position.y = click_pos.y;
         }
+
+        for (movement_helper, player_entity) in query_movement_helper.iter() {
+            if player_entity.player == selected {
+                commands.entity(movement_helper).despawn_recursive();
+            }
+        }
+
+        super::helpers::spawn_movement_helper(
+            &mut commands,
+            &helper_materials,
+            Vec2::new(click_pos.x, click_pos.y),
+            Vec2::new(transform.translation.x, transform.translation.y),
+            selected.clone()
+        );
     }
 }

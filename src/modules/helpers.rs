@@ -32,6 +32,28 @@ pub fn spawn_selected_helper(commands: &mut Commands, helper_materials: &Res<Hel
         .insert(SelectedHelper {});
 }
 
+pub fn deselect_all(
+    mut commands: Commands,
+    mut query_helper: Query<&mut Transform, With<SelectedHelper>>,
+    query_selected: Query<Entity, (With<super::player::Actor>, With<super::player::Selected>)>
+) {
+    if let Ok(mut selected_helper_transform) = query_helper.single_mut() {
+        selected_helper_transform.translation.z = -1.0;
+    }
+    for player_selected in query_selected.iter() {
+        commands.entity(player_selected).remove::<super::player::Selected> ();
+    }
+}
+
+pub fn cleanup_movement_helpers(
+    mut commands: Commands,
+    query_helper: Query<Entity, With<MovementHelper>>,
+) {
+    for movement_helper in query_helper.iter() {
+        commands.entity(movement_helper).despawn_recursive();
+    }
+}
+
 pub fn spawn_movement_helper(
     commands: &mut Commands,
     helper_materials: &Res<HelperMaterials>,
