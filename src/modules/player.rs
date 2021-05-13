@@ -1,7 +1,7 @@
 use bevy::prelude::*;
+use heron::prelude::*;
 
-
-const PLAYER_SPEED: f32 = 2.0;
+const PLAYER_SPEED: f32 = 100.0;
 pub struct PlayerTextures(Handle<TextureAtlas>);
 
 pub type AnimationTimer = Timer;
@@ -47,7 +47,7 @@ pub fn setup_player_sprites(
     asset_server: &Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>
 ) {
-    let texture_handle = asset_server.load("players-blue.png");
+    let texture_handle = asset_server.load("players-red.png");
     let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(32.0, 32.0), 5, 1);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
@@ -64,7 +64,9 @@ pub fn spawn_player(commands: &mut Commands, player_sprites: &Res<PlayerTextures
         })
         .insert(Actor { state: ActorState::Idle })
         .insert(Animation::new(vec![0]))
-        .insert(AnimationTimer::from_seconds(1.0/8.0, true));
+        .insert(AnimationTimer::from_seconds(1.0/8.0, true))
+        .insert(Body::Capsule { half_segment: 4.0, radius: 10.0 })
+        .insert(Velocity::from(Vec2::ZERO));
 }
 
 pub fn handle_player_state(
@@ -83,14 +85,38 @@ pub fn handle_player_state(
     }
 }
 
-pub fn player_movement(
+pub fn stop_players(
+    mut query: Query<&mut Velocity, With<Actor>>,
+) {
+    for mut velocity in query.iter_mut() {
+        velocity.linear = Vec3::ZERO;
+    }
+}
+
+pub fn trigger_move_players(
+    mut query: Query<(&mut Actor, &TargetPosition, &Transform, &mut TextureAtlasSprite, &mut Velocity)>,
+) {
+    for (mut actor, target_position, transform, mut sprite, mut velocity) in query.iter_mut() {
+        let delta = (*target_position - transform.translation).normalize() * PLAYER_SPEED;
+        sprite.flip_x = delta.x < 0.0;
+        actor.state = ActorState::Running;
+        velocity.linear = Vec3::new(delta.x, delta.y, 0.0);
+    }
+}
+
+pub fn player_reached_position(
     mut commands: Commands,
-    mut query: Query<(Entity, &mut Actor, &TargetPosition, &mut Transform, &mut TextureAtlasSprite), With<Actor>>,
+    mut query: Query<(Entity, &mut Actor, &TargetPosition, &mut Transform, &mut Velocity)>,
     query_movement_helper: Query<(Entity, &super::helpers::MovementHelper)>
 ) {
-    for (entity, mut actor, target_position, mut transform, mut sprite) in query.iter_mut() {
-        if transform.translation.x == target_position.x && transform.translation.y == target_position.y {
+    for (entity, mut actor, target_position, mut transform, mut velocity) in query.iter_mut() {
+        let d_x = transform.translation.x - target_position.x;
+        let d_y = transform.translation.y - target_position.y;
+        if d_x.abs() < 1.0 && d_y.abs() < 1.0 {
             commands.entity(entity).remove::<TargetPosition> ();
+            velocity.linear = Vec3::ZERO;
+            transform.translation.x = target_position.x;
+            transform.translation.y = target_position.y;
             actor.state = ActorState::Idle;
 
             for (helper_entity, player_entity) in query_movement_helper.iter() {
@@ -100,19 +126,6 @@ pub fn player_movement(
             }
             return;
         }
-
-        let delta = *target_position - transform.translation;
-        sprite.flip_x = delta.x < 0.0;
-
-        if delta.x.abs() < PLAYER_SPEED && delta.y.abs() < PLAYER_SPEED {
-            transform.translation.x = target_position.x;
-            transform.translation.y = target_position.y;
-            return;
-        }
-
-        let delta = delta.normalize() * PLAYER_SPEED;
-        transform.translation.x += delta.x;
-        transform.translation.y += delta.y;
     }
 }
 

@@ -35,6 +35,7 @@ pub fn handle_mouse_click(
         return;
     }
 
+    //get mouse position if mouse left button is clicked
     let click_pos = windows
         .get_primary()
         .and_then(|win| -> Option<bevy::prelude::Vec2> {
@@ -51,6 +52,7 @@ pub fn handle_mouse_click(
     }
     let click_pos = click_pos.unwrap();
 
+    //get if some player is clicked
     let mut clicked_entity = None;
     for (entity, transform) in query.q0().iter() {
         if utils::is_point_in_rect(&click_pos, &transform.translation, 16.0) {
@@ -58,6 +60,7 @@ pub fn handle_mouse_click(
         }
     }
 
+    //if it is, select him
     if clicked_entity.is_some() {
         for (prev_selected, _,  _, _) in query.q1_mut().iter_mut() {
             commands.entity(prev_selected).remove::<player::Selected> ();
@@ -69,6 +72,7 @@ pub fn handle_mouse_click(
         return;
     }
 
+    //if not set target position
     for (selected, transform, mut actor, target_position) in query.q1_mut().iter_mut() {
         if target_position.is_none() {
             commands.entity(selected).insert(player::TargetPosition::new(click_pos.x, click_pos.y, 1.0));

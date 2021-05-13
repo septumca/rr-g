@@ -1,6 +1,7 @@
 use bevy::prelude::*;
-mod modules;
+use heron::prelude::*;
 
+mod modules;
 use modules::{ui, player, input, utils, helpers, states, round};
 
 
@@ -45,6 +46,7 @@ fn main() {
         .add_state(states::AppState::Plan)
         .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1)))
         .add_plugins(DefaultPlugins)
+        .add_plugin(PhysicsPlugin::default())
         .add_startup_system(setup.system())
         .add_startup_stage("game_initialization", SystemStage::single(initialize_game.system()))
         .add_system_set(
@@ -67,13 +69,18 @@ fn main() {
             SystemSet::on_enter(states::AppState::Play)
                 .with_system(round::start_timer.system())
                 .with_system(states::state_change.system())
+                .with_system(player::trigger_move_players.system())
         )
         .add_system_set(
             SystemSet::on_update(states::AppState::Play)
                 .with_system(player::animate_sprite.system())
-                .with_system(player::player_movement.system())
+                .with_system(player::player_reached_position.system())
                 .with_system(round::update_timer.system())
                 .with_system(player::handle_player_state.system())
+        )
+        .add_system_set(
+            SystemSet::on_exit(states::AppState::Play)
+                .with_system(player::stop_players.system())
         )
         .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
