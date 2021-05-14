@@ -120,6 +120,12 @@ pub fn reset_move_actions(
     }
 }
 
+pub fn reset_action_timer(timer: &mut ActionTimer, t: f32) {
+    timer.0.set_duration(Duration::from_secs_f32(t));
+    timer.0.set_repeating(false);
+    timer.0.reset();
+}
+
 
 pub fn update_players_actions(
     time: Res<Time>,
@@ -140,6 +146,7 @@ pub fn update_players_actions(
             }
         };
         if is_action_finished {
+            reset_action_timer(&mut timer, 1.0);
             actor.trigger_queued_action();
         }
     }
@@ -163,9 +170,7 @@ pub fn handle_player_action_change(
             },
             ActorAction::Recovering(t) => {
                 animation.sprite_indexes = vec![4];
-                timer.0.set_duration(Duration::from_secs_f32(t));
-                timer.0.set_repeating(false);
-                timer.0.reset();
+                reset_action_timer(&mut timer, t);
             }
         };
     }
