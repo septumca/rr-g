@@ -29,7 +29,7 @@ fn initialize_game(
 
     ui::spawn_ui(&mut commands, &fonts);
     player::spawn_player(&mut commands, &player_sprites, Vec3::new(0.0, 0.0, 1.0));
-    player::spawn_player(&mut commands, &player_sprites, Vec3::new(-100.0, -200.0, 1.0));
+    player::spawn_player(&mut commands, &player_sprites, Vec3::new(-100.0, -100.0, 1.0));
     helpers::spawn_selected_helper(&mut commands, &helper_materiarls);
 }
 
@@ -53,7 +53,6 @@ fn main() {
             SystemSet::on_enter(states::AppState::Plan)
                 .with_system(states::state_change.system())
                 .with_system(helpers::cleanup_movement_helpers.system())
-                .with_system(player::cleanup_movement.system())
         )
         .add_system_set(
             SystemSet::on_update(states::AppState::Plan)
@@ -69,19 +68,23 @@ fn main() {
             SystemSet::on_enter(states::AppState::Play)
                 .with_system(round::start_timer.system())
                 .with_system(states::state_change.system())
-                .with_system(player::trigger_move_players.system())
         )
         .add_system_set(
             SystemSet::on_update(states::AppState::Play)
                 .with_system(player::animate_sprite.system())
-                .with_system(player::player_reached_position.system())
                 .with_system(round::update_timer.system())
-                .with_system(player::handle_player_state.system())
-                .with_system(player::handle_collisions.system())
+                .with_system(player::update_players_actions.system().label("actions_update_step1"))
+                .with_system(player::handle_player_action_change.system()
+                    .label("actions_update_step2")
+                    .after("actions_update_step1")
+                )
+                .with_system(player::update_helpers.system().after("actions_update_step2"))
+                .with_system(player::handle_collisions.system().before("actions_update_step2"))
         )
         .add_system_set(
             SystemSet::on_exit(states::AppState::Play)
-                .with_system(player::stop_players.system())
+                .with_system(player::reset_move_actions.system().label("reset_movement"))
+                .with_system(player::handle_player_action_change.system().after("reset_movement"))
         )
         .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();

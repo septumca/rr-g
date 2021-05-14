@@ -14,7 +14,7 @@ pub fn handle_keyboard_input(mut keyboard_input: ResMut<Input<KeyCode>>, mut app
 pub fn handle_mouse_click(
     mut query:  QuerySet<(
         Query<(Entity, &Transform), (With<player::Actor>, Without<player::Selected>)>,
-        Query<(Entity, &Transform, &mut player::Actor, Option<&mut player::TargetPosition>), With<player::Selected>>,
+        Query<(Entity, &Transform, &mut player::Actor), With<player::Selected>>,
     )>,
     query_movement_helper: Query<(Entity, &super::helpers::MovementHelper)>,
     mut query_text: Query<&mut Text, With<ui::SelectedText>>,
@@ -27,7 +27,7 @@ pub fn handle_mouse_click(
     let mouse_right_pressed = mouse_input.just_pressed(MouseButton::Right);
 
     if mouse_right_pressed {
-        for (prev_selected, _, _, _) in query.q1_mut().iter_mut() {
+        for (prev_selected, _, _) in query.q1_mut().iter_mut() {
             commands.entity(prev_selected).remove::<player::Selected> ();
             let mut text = query_text.single_mut().expect("Cannot access Diagnostic Text");
             super::ui::update_text(&mut text, format!("No entity selected"));
@@ -62,7 +62,7 @@ pub fn handle_mouse_click(
 
     //if it is, select him
     if clicked_entity.is_some() {
-        for (prev_selected, _,  _, _) in query.q1_mut().iter_mut() {
+        for (prev_selected, _,  _) in query.q1_mut().iter_mut() {
             commands.entity(prev_selected).remove::<player::Selected> ();
         }
         let clicked_entity = clicked_entity.unwrap();
@@ -73,14 +73,15 @@ pub fn handle_mouse_click(
     }
 
     //if not set target position
-    for (selected, transform, mut actor, target_position) in query.q1_mut().iter_mut() {
-        if target_position.is_none() {
-            commands.entity(selected).insert(player::TargetPosition::new(click_pos.x, click_pos.y, 1.0));
-            actor.state = player::ActorState::Running;
-        } else {
-            let mut target_position = target_position.unwrap();
-            target_position.x = click_pos.x;
-            target_position.y = click_pos.y;
+    for (selected, transform, mut actor) in query.q1_mut().iter_mut() {
+        let run_action = player::ActorAction::Running { x: click_pos.x, y: click_pos.y };
+        match actor.act_action {
+            player::ActorAction::Running { x: _, y: _ } => {
+                actor.set_action(run_action);
+            },
+            _ => {
+                actor.queue_action(run_action);
+            }
         }
 
         for (movement_helper, player_entity) in query_movement_helper.iter() {

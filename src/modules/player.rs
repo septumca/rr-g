@@ -1,10 +1,12 @@
 use bevy::prelude::*;
 use heron::prelude::*;
+use std::time::Duration;
 
 const PLAYER_SPEED: f32 = 100.0;
 pub struct PlayerTextures(Handle<TextureAtlas>);
 
 pub type AnimationTimer = Timer;
+pub struct ActionTimer(Timer);
 
 pub struct Animation {
     pub act_frame_index: usize,
@@ -27,16 +29,45 @@ impl Animation {
     }
 }
 
-pub type TargetPosition = Vec3;
-pub enum ActorState {
+#[derive(Clone, Copy, Debug)]
+pub enum ActorAction {
     Idle,
-    Running,
+    Running { x: f32, y: f32 },
     // Diving,
-    Recovering
+    Recovering(f32)
 }
 pub struct Actor {
-    pub state: ActorState
+    pub act_action: ActorAction,
+    queued_action: Option<ActorAction>
 }
+impl Actor {
+    pub fn new_idle() -> Self {
+        Self {
+            act_action: ActorAction::Idle,
+            queued_action: None
+        }
+    }
+    pub fn trigger_queued_action(&mut self) {
+        self.act_action = self.queued_action.unwrap_or(ActorAction::Idle);
+    }
+    pub fn set_action(&mut self, action: ActorAction) {
+        self.act_action = action;
+        self.queued_action = None;
+    }
+    pub fn queue_action(&mut self, action: ActorAction) {
+        match self.act_action {
+            ActorAction::Idle => {
+                self.set_action(action);
+            },
+            _ => {
+                self.queued_action = Some(action);
+            }
+        }
+
+    }
+}
+
+
 
 
 pub struct Selected {}
@@ -62,78 +93,103 @@ pub fn spawn_player(commands: &mut Commands, player_sprites: &Res<PlayerTextures
             transform: Transform::from_translation(position),
             ..Default::default()
         })
-        .insert(Actor { state: ActorState::Idle })
+        .insert(Actor::new_idle())
         .insert(Animation::new(vec![0]))
         .insert(AnimationTimer::from_seconds(1.0/8.0, true))
+        .insert(ActionTimer(Timer::from_seconds(1.0, false)))
         .insert(Body::Capsule { half_segment: 4.0, radius: 10.0 })
         .insert(RotationConstraints::lock())
-        // .insert(PhysicMaterial {
-        //     restitution: 0.0, // Define the restitution. Higher value means more "bouncy"
-        //     density: 80.0, // Define the density. Higher value means heavier.
-        //     friction: 1.0, // Define the friction. Higher value means higher friction.
-        // })
+        .insert(PhysicMaterial {
+            restitution: 0.1, // Define the restitution. Higher value means more "bouncy"
+            density: 80.0, // Define the density. Higher value means heavier.
+            friction: 1.0, // Define the friction. Higher value means higher friction.
+        })
         .insert(Velocity::from(Vec2::ZERO));
 }
 
-pub fn handle_player_state(
-    mut query: Query<(&Actor, &mut Animation), Changed<Actor>>,
+pub fn reset_move_actions(
+    mut query: Query<&mut Actor>,
 ) {
-    for (actor, mut animation) in query.iter_mut() {
-        animation.act_frame_index = 0;
-        match actor.state {
-            ActorState::Idle => {
-                animation.sprite_indexes = vec![0];
+    for mut actor in query.iter_mut() {
+        match actor.act_action {
+            ActorAction::Running { x: _, y: _ } => {
+                actor.set_action(ActorAction::Idle);
             },
-            ActorState::Running => {
+            _ => ()
+        }
+    }
+}
+
+
+pub fn update_players_actions(
+    time: Res<Time>,
+    mut query: Query<(&mut Actor, &mut Transform, &mut ActionTimer)>,
+) {
+    for (mut actor, transform, mut timer) in query.iter_mut() {
+        let is_action_finished = match actor.act_action {
+            ActorAction::Idle => false,
+            ActorAction::Running { x, y} => {
+                let d_x = transform.translation.x - x;
+                let d_y = transform.translation.y - y;
+
+                d_x.abs() < 1.0 && d_y.abs() < 1.0
+            },
+            ActorAction::Recovering(_) => {
+                timer.0.tick(time.delta());
+                timer.0.finished()
+            }
+        };
+        if is_action_finished {
+            actor.trigger_queued_action();
+        }
+    }
+}
+
+pub fn handle_player_action_change(
+    mut query: Query<(&Actor, &Transform, &mut Velocity, &mut TextureAtlasSprite, &mut Animation, &mut ActionTimer), Changed<Actor>>,
+) {
+    // println!("handle_player_action_change triggered");
+    for (actor, transform, mut velocity, mut sprite, mut animation, mut timer) in query.iter_mut() {
+        match actor.act_action {
+            ActorAction::Idle => {
+                animation.sprite_indexes = vec![0];
+                velocity.linear = Vec3::ZERO;
+            },
+            ActorAction::Running { x, y} => {
+                let delta = (Vec3::new(x, y, transform.translation.z) - transform.translation).normalize() * PLAYER_SPEED;
+                sprite.flip_x = delta.x < 0.0;
+                velocity.linear = Vec3::new(delta.x, delta.y, 0.0);
                 animation.sprite_indexes = vec![0, 1, 0, 2];
             },
-            ActorState::Recovering => {
+            ActorAction::Recovering(t) => {
                 animation.sprite_indexes = vec![4];
+                timer.0.set_duration(Duration::from_secs_f32(t));
+                timer.0.set_repeating(false);
+                timer.0.reset();
             }
         };
     }
 }
 
-pub fn stop_players(
-    mut query: Query<&mut Velocity, With<Actor>>,
-) {
-    for mut velocity in query.iter_mut() {
-        velocity.linear = Vec3::ZERO;
-    }
-}
-
-pub fn trigger_move_players(
-    mut query: Query<(&mut Actor, &TargetPosition, &Transform, &mut TextureAtlasSprite, &mut Velocity)>,
-) {
-    for (mut actor, target_position, transform, mut sprite, mut velocity) in query.iter_mut() {
-        let delta = (*target_position - transform.translation).normalize() * PLAYER_SPEED;
-        sprite.flip_x = delta.x < 0.0;
-        actor.state = ActorState::Running;
-        velocity.linear = Vec3::new(delta.x, delta.y, 0.0);
-    }
-}
-
-pub fn player_reached_position(
+pub fn update_helpers(
     mut commands: Commands,
-    mut query: Query<(Entity, &mut Actor, &TargetPosition, &mut Transform, &mut Velocity)>,
+    mut query: Query<(Entity, &Actor)>,
     query_movement_helper: Query<(Entity, &super::helpers::MovementHelper)>
 ) {
-    for (entity, mut actor, target_position, mut transform, mut velocity) in query.iter_mut() {
-        let d_x = transform.translation.x - target_position.x;
-        let d_y = transform.translation.y - target_position.y;
-        if d_x.abs() < 1.0 && d_y.abs() < 1.0 {
-            commands.entity(entity).remove::<TargetPosition> ();
-            velocity.linear = Vec3::ZERO;
-            transform.translation.x = target_position.x;
-            transform.translation.y = target_position.y;
-            actor.state = ActorState::Idle;
+    for (entity, actor) in query.iter_mut() {
+        let should_keep_helpers = match actor.act_action {
+            ActorAction::Running { x: _, y: _ } => true,
+            _ => false,
+        };
 
-            for (helper_entity, player_entity) in query_movement_helper.iter() {
-                if player_entity.player == entity {
-                    commands.entity(helper_entity).despawn_recursive();
-                }
+        if should_keep_helpers {
+            continue;
+        }
+
+        for (helper_entity, player_entity) in query_movement_helper.iter() {
+            if player_entity.player == entity {
+                commands.entity(helper_entity).despawn_recursive();
             }
-            return;
         }
     }
 }
@@ -151,41 +207,20 @@ pub fn animate_sprite(
     }
 }
 
-pub fn cleanup_movement(
-    mut commands: Commands,
-    mut query_players: Query<(Entity, &mut Actor), With<TargetPosition>>,
-) {
-    for (player, mut actor) in query_players.iter_mut() {
-        commands.entity(player).remove::<super::player::TargetPosition> ();
-        actor.state = ActorState::Idle;
-    }
-}
 
 pub fn handle_collisions(
     mut events: EventReader<CollisionEvent>,
-    mut commands: Commands,
-    mut query: Query<(&mut Actor, &mut Velocity)>,
-    query_movement_helper: Query<(Entity, &super::helpers::MovementHelper)>
+    mut query: Query<&mut Actor>,
 ) {
     for event in events.iter() {
         match event {
             CollisionEvent::Started(e1, e2) => {
-                commands.entity(*e1).remove::<TargetPosition> ();
-                commands.entity(*e2).remove::<TargetPosition> ();
-                for (helper_entity, player_entity) in query_movement_helper.iter() {
-                    if player_entity.player == *e1 || player_entity.player == *e2 {
-                        commands.entity(helper_entity).despawn_recursive();
-                    }
+                for mut actor in query.get_mut(*e1) {
+                    actor.set_action(ActorAction::Recovering(0.3));
                 }
 
-                for (mut actor, mut velocity) in query.get_mut(*e1) {
-                    actor.state = ActorState::Recovering;
-                    velocity.linear = -velocity.linear*0.1;
-                }
-
-                for (mut actor, mut velocity) in query.get_mut(*e2) {
-                    actor.state = ActorState::Recovering;
-                    velocity.linear = -velocity.linear*0.1;
+                for mut actor in query.get_mut(*e2) {
+                    actor.set_action(ActorAction::Recovering(0.3));
                 }
             }
             _ => ()

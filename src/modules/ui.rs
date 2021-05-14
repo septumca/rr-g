@@ -3,6 +3,7 @@ use bevy::prelude::*;
 
 pub struct SelectedText;
 pub struct StateText;
+pub struct ActorStateText;
 
 pub struct FontMaterials {
     debug_font: Handle<Font>
@@ -34,7 +35,6 @@ fn create_debug_text_bundle(fonts: &Res<FontMaterials>, text: String, y: f32) ->
         },
         text: Text {
             sections: vec![
-
                 TextSection {
                     value: text,
                     style: TextStyle {
@@ -57,4 +57,7 @@ pub fn spawn_ui(commands: &mut Commands, fonts: &Res<FontMaterials>) {
     commands
         .spawn_bundle(create_debug_text_bundle(&fonts, "No state".to_string(), 20.0))
         .insert(StateText);
+    commands
+        .spawn_bundle(create_debug_text_bundle(&fonts, "TODO: Actor Debug".to_string(), 35.0))
+        .insert(ActorStateText);
 }
