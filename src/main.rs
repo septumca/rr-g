@@ -77,6 +77,7 @@ fn main() {
                 .with_system(player::player_reached_position.system())
                 .with_system(round::update_timer.system())
                 .with_system(player::handle_player_state.system())
+                .with_system(player::handle_collisions.system())
         )
         .add_system_set(
             SystemSet::on_exit(states::AppState::Play)

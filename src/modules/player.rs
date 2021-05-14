@@ -32,7 +32,7 @@ pub enum ActorState {
     Idle,
     Running,
     // Diving,
-    // Recovering
+    Recovering
 }
 pub struct Actor {
     pub state: ActorState
@@ -66,6 +66,12 @@ pub fn spawn_player(commands: &mut Commands, player_sprites: &Res<PlayerTextures
         .insert(Animation::new(vec![0]))
         .insert(AnimationTimer::from_seconds(1.0/8.0, true))
         .insert(Body::Capsule { half_segment: 4.0, radius: 10.0 })
+        .insert(RotationConstraints::lock())
+        // .insert(PhysicMaterial {
+        //     restitution: 0.0, // Define the restitution. Higher value means more "bouncy"
+        //     density: 80.0, // Define the density. Higher value means heavier.
+        //     friction: 1.0, // Define the friction. Higher value means higher friction.
+        // })
         .insert(Velocity::from(Vec2::ZERO));
 }
 
@@ -80,6 +86,9 @@ pub fn handle_player_state(
             },
             ActorState::Running => {
                 animation.sprite_indexes = vec![0, 1, 0, 2];
+            },
+            ActorState::Recovering => {
+                animation.sprite_indexes = vec![4];
             }
         };
     }
@@ -149,5 +158,40 @@ pub fn cleanup_movement(
     for (player, mut actor) in query_players.iter_mut() {
         commands.entity(player).remove::<super::player::TargetPosition> ();
         actor.state = ActorState::Idle;
+    }
+}
+
+pub fn handle_collisions(
+    mut events: EventReader<CollisionEvent>,
+    mut commands: Commands,
+    mut query: Query<(&mut Actor, &mut Velocity)>,
+    query_movement_helper: Query<(Entity, &super::helpers::MovementHelper)>
+) {
+    for event in events.iter() {
+        match event {
+            CollisionEvent::Started(e1, e2) => {
+                commands.entity(*e1).remove::<TargetPosition> ();
+                commands.entity(*e2).remove::<TargetPosition> ();
+                for (helper_entity, player_entity) in query_movement_helper.iter() {
+                    if player_entity.player == *e1 || player_entity.player == *e2 {
+                        commands.entity(helper_entity).despawn_recursive();
+                    }
+                }
+
+                for (mut actor, mut velocity) in query.get_mut(*e1) {
+                    actor.state = ActorState::Recovering;
+                    velocity.linear = -velocity.linear*0.1;
+                }
+
+                for (mut actor, mut velocity) in query.get_mut(*e2) {
+                    actor.state = ActorState::Recovering;
+                    velocity.linear = -velocity.linear*0.1;
+                }
+            }
+            _ => ()
+            // CollisionEvent::Stopped(e1, e2) => {
+            //     println!("Collision stopped between {:?} and {:?}", e1, e2)
+            // }
+        }
     }
 }
