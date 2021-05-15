@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use heron::prelude::*;
 
 pub struct Ball {}
 pub struct BallMaterial(Handle<ColorMaterial>);
@@ -11,9 +10,10 @@ pub fn setup_ball_material(commands: &mut Commands, asset_server: &Res<AssetServ
 pub fn spawn_ball(
     commands: &mut Commands,
     ball_material: &Res<BallMaterial>,
-    position: Vec3
+    position: Vec2,
+    velocity_vector: Vec2,
 ) {
-    commands
+    let e = commands
         .spawn_bundle(SpriteBundle {
             material: ball_material.0.clone(),
             sprite: Sprite::new(Vec2::new(10.0, 6.0)),
@@ -22,13 +22,7 @@ pub fn spawn_ball(
         })
         .insert(Ball {})
         .insert(super::collision::ColliderType::Ball)
-        .insert(Body::Capsule { half_segment: -4.0, radius: 5.0 })
-        .insert(RotationConstraints::lock())
-        .insert(PhysicMaterial {
-            restitution: 1.0, // Define the restitution. Higher value means more "bouncy"
-            density: 0.5, // Define the density. Higher value means heavier.
-            friction: 1.0, // Define the friction. Higher value means higher friction.
-        })
-        .insert(RotationConstraints::lock())
-        .insert(Velocity::from(Vec2::ZERO));
+        .id();
+
+    super::physics::create_physics_ball(commands, e, position, velocity_vector);
 }
