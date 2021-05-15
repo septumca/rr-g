@@ -5,7 +5,7 @@ use std::time::Duration;
 const PLAYER_SPEED: f32 = 100.0;
 pub struct PlayerTextures(Handle<TextureAtlas>);
 
-pub type AnimationTimer = Timer;
+pub struct AnimationTimer(Timer);
 pub struct ActionTimer(Timer);
 
 pub struct Animation {
@@ -19,11 +19,9 @@ impl Animation {
             sprite_indexes
         }
     }
-
     pub fn update(&mut self) {
         self.act_frame_index = (self.act_frame_index + 1) % self.sprite_indexes.len()
     }
-
     pub fn get_sprite_index(&self) -> u32 {
         return self.sprite_indexes[self.act_frame_index] as u32;
     }
@@ -63,7 +61,6 @@ impl Actor {
                 self.queued_action = Some(action);
             }
         }
-
     }
 }
 
@@ -95,8 +92,9 @@ pub fn spawn_player(commands: &mut Commands, player_sprites: &Res<PlayerTextures
         })
         .insert(Actor::new_idle())
         .insert(Animation::new(vec![0]))
-        .insert(AnimationTimer::from_seconds(1.0/8.0, true))
+        .insert(AnimationTimer(Timer::from_seconds(1.0/8.0, true)))
         .insert(ActionTimer(Timer::from_seconds(1.0, false)))
+        .insert(super::collision::ColliderType::Player)
         .insert(Body::Capsule { half_segment: 4.0, radius: 10.0 })
         .insert(RotationConstraints::lock())
         .insert(PhysicMaterial {
@@ -204,34 +202,10 @@ pub fn animate_sprite(
     mut query: Query<(&mut AnimationTimer, &mut TextureAtlasSprite, &mut Animation)>,
 ) {
     for (mut timer, mut sprite, mut animation) in query.iter_mut() {
-        timer.tick(time.delta());
-        if timer.finished() {
+        timer.0.tick(time.delta());
+        if timer.0.finished() {
             animation.update();
             sprite.index = animation.get_sprite_index();
-        }
-    }
-}
-
-
-pub fn handle_collisions(
-    mut events: EventReader<CollisionEvent>,
-    mut query: Query<&mut Actor>,
-) {
-    for event in events.iter() {
-        match event {
-            CollisionEvent::Started(e1, e2) => {
-                for mut actor in query.get_mut(*e1) {
-                    actor.set_action(ActorAction::Recovering(0.3));
-                }
-
-                for mut actor in query.get_mut(*e2) {
-                    actor.set_action(ActorAction::Recovering(0.3));
-                }
-            }
-            _ => ()
-            // CollisionEvent::Stopped(e1, e2) => {
-            //     println!("Collision stopped between {:?} and {:?}", e1, e2)
-            // }
         }
     }
 }
