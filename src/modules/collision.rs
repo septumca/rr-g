@@ -7,7 +7,7 @@ use bevy_rapier2d::{
 };
 use super::{
     ball,
-    player,
+    actor,
 };
 
 pub struct RRCollisionEvent {
@@ -17,14 +17,14 @@ pub struct RRCollisionEvent {
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ColliderType {
-    Player,
+    Actor,
     Ball
 }
 
-fn resolve_player_to_player_start(
-    mut actor: Mut<player::Actor>,
+fn resolve_actor_to_actor_start(
+    mut actor: Mut<actor::Actor>,
 ) {
-    actor.set_action(player::ActorAction::Recovering(0.3));
+    actor.set_action(actor::ActorAction::Recovering(0.3));
 }
 
 pub fn get_contact_events(
@@ -64,26 +64,26 @@ pub fn get_contact_events(
 pub fn handle_collision_events(
     mut events: EventReader<RRCollisionEvent>,
     mut events_ball: EventWriter<ball::BallEvent>,
-    mut query: Query<&mut player::Actor>
+    mut query: Query<&mut actor::Actor>
 ) {
     for event in events.iter() {
         let (e1, e1_type) = event.a;
         let (e2, e2_type) = event.b;
 
-        if e1_type == ColliderType::Player && e2_type == ColliderType::Player {
+        if e1_type == ColliderType::Actor && e2_type == ColliderType::Actor {
             let actor = query.get_mut(e1).unwrap();
-            resolve_player_to_player_start(actor);
+            resolve_actor_to_actor_start(actor);
             let actor = query.get_mut(e2).unwrap();
-            resolve_player_to_player_start(actor);
+            resolve_actor_to_actor_start(actor);
         }
         else {
             let (ball_entity, actor_entity) = match e1_type {
                 ColliderType::Ball => (e1, e2),
-                ColliderType::Player => (e2, e1)
+                ColliderType::Actor => (e2, e1)
             };
             let actor = query.get_mut(actor_entity).unwrap();
             let can_pickup_ball = match actor.act_action {
-                player::ActorAction::Recovering(_) | player::ActorAction::Throwing { x: _, y: _ } => false,
+                actor::ActorAction::Recovering(_) | actor::ActorAction::Throwing { x: _, y: _ } => false,
                 _ => true
             };
             if can_pickup_ball {

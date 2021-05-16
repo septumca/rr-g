@@ -18,7 +18,7 @@ pub fn set_velocity(
     }
 }
 
-pub fn create_physics_player(
+pub fn create_physics_actor(
     commands: &mut Commands,
     e: Entity,
     position: Vec2

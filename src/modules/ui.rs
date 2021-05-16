@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use super:: {
-    player,
+    actor,
     states,
 };
 
@@ -68,7 +68,7 @@ pub fn spawn_ui(commands: &mut Commands, fonts: &Res<FontMaterials>) {
 }
 
 fn control_mode_changed(
-    control_mode: Res<player::CurrentControlMode>,
+    control_mode: Res<actor::CurrentControlMode>,
     mut query_text: Query<&mut Text, With<ControlModeText>>
 ) {
     if control_mode.is_changed() {
@@ -87,16 +87,16 @@ fn state_changed(
     }
 }
 
-fn selected_player_changed(
-    query_player: Query<(Entity, &player::Actor, &player::BallPossession), With<player::Selected>>,
+fn selected_actor_changed(
+    query_actor: Query<(Entity, &actor::Actor, &actor::BallPossession), With<actor::Selected>>,
     mut query_text: Query<&mut Text, With<SelectedText>>
 ) {
-    let q_result = query_player.single();
+    let q_result = query_actor.single();
     let msg = if q_result.is_ok() {
         let (entity, actor, ball_possession) = q_result.unwrap();
-        format!("Selected player: {:?}, state: {:?}, has ball: {}", entity, actor.act_action, ball_possession.0)
+        format!("Selected actor: {:?}, state: {:?}, has ball: {}", entity, actor.act_action, ball_possession.0)
     } else {
-        format!("No player selected")
+        format!("No actor selected")
     };
     let mut text = query_text.single_mut().expect("Cannot access Diagnostic Text");
     update_text(&mut text, msg);
@@ -106,5 +106,5 @@ pub fn ui_changes_listeners() -> SystemSet {
     SystemSet::new()
         .with_system(control_mode_changed.system())
         .with_system(state_changed.system())
-        .with_system(selected_player_changed.system())
+        .with_system(selected_actor_changed.system())
 }

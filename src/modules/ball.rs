@@ -7,7 +7,7 @@ use bevy_rapier2d::{
 };
 use super::{
     animation,
-    player,
+    actor,
     physics,
     collision,
 };
@@ -76,12 +76,12 @@ pub fn handle_ball_events(
     mut commands: Commands,
     mut events: EventReader<BallEvent>,
     ball_sprite: Res<BallTexture>,
-    mut query_player: Query<&mut player::BallPossession, With<player::Actor>>
+    mut query_actor: Query<&mut actor::BallPossession, With<actor::Actor>>
 ) {
     for event in events.iter() {
         match *event {
             BallEvent::Drop { entity, position, velocity_vector} => {
-                if let Ok(mut ball_possession) = query_player.get_mut(entity) {
+                if let Ok(mut ball_possession) = query_actor.get_mut(entity) {
                     ball_possession.0 = false;
                 }
                 let norm_vel = velocity_vector.normalize();
@@ -93,7 +93,7 @@ pub fn handle_ball_events(
                 spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, None);
             },
             BallEvent::Throw { entity, position, throw_target} => {
-                if let Ok(mut ball_possession) = query_player.get_mut(entity) {
+                if let Ok(mut ball_possession) = query_actor.get_mut(entity) {
                     ball_possession.0 = false;
                 }
                 let delta = (throw_target - position).normalize();
@@ -105,7 +105,7 @@ pub fn handle_ball_events(
                 spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, Some(throw_target));
             },
             BallEvent::Pickup { actor_entity, ball_entity} => {
-                if let Ok(mut ball_possession) = query_player.get_mut(actor_entity) {
+                if let Ok(mut ball_possession) = query_actor.get_mut(actor_entity) {
                     ball_possession.0 = true;
                 }
                 commands.entity(ball_entity).despawn();

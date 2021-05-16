@@ -1,5 +1,5 @@
 pub mod ui;
-pub mod player;
+pub mod actor;
 pub mod input;
 pub mod utils;
 pub mod helpers;

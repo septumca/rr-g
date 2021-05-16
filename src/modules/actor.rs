@@ -15,7 +15,7 @@ use super::{
 };
 
 const PLAYER_SPEED: f32 = 100.0;
-pub struct PlayerTextures {
+pub struct ActorTextures {
     red: Handle<TextureAtlas>,
     blue: Handle<TextureAtlas>,
 }
@@ -80,29 +80,29 @@ fn get_idle_indexes(ball_possession: bool) -> Vec<usize> {
 }
 
 
-pub fn setup_player_sprites(
+pub fn setup_actor_sprites(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
 ) {
-    let texture_handle = asset_server.load("players-red.png");
+    let texture_handle = asset_server.load("actors-red.png");
     let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(48.0, 48.0), 14, 1);
     let texture_atlas_handle_red = texture_atlases.add(texture_atlas);
-    let texture_handle = asset_server.load("players-blue.png");
+    let texture_handle = asset_server.load("actors-blue.png");
     let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(48.0, 48.0), 14, 1);
     let texture_atlas_handle_blue = texture_atlases.add(texture_atlas);
 
-    commands.insert_resource(PlayerTextures{
+    commands.insert_resource(ActorTextures{
         red: texture_atlas_handle_red,
         blue: texture_atlas_handle_blue
     });
 }
 
 
-pub fn spawn_player(commands: &mut Commands, player_sprites: &Res<PlayerTextures>, position: Vec2, blue: bool, flipped: bool) {
+pub fn spawn_actor(commands: &mut Commands, actor_sprites: &Res<ActorTextures>, position: Vec2, blue: bool, flipped: bool) {
     let e = commands
         .spawn_bundle(SpriteSheetBundle {
-            texture_atlas: if blue { player_sprites.blue.clone() } else { player_sprites.red.clone() },
+            texture_atlas: if blue { actor_sprites.blue.clone() } else { actor_sprites.red.clone() },
             transform: Transform::from_translation(Vec3::new(position.x, position.y, 1.0)),
             sprite: TextureAtlasSprite {
                 flip_x: flipped,
@@ -115,9 +115,9 @@ pub fn spawn_player(commands: &mut Commands, player_sprites: &Res<PlayerTextures
         .insert(animation::Animation::new(vec![0]))
         .insert(animation::AnimationTimer(Timer::from_seconds(1.0/8.0, true)))
         .insert(ActionTimer(Timer::from_seconds(1.0, false)))
-        .insert(collision::ColliderType::Player)
+        .insert(collision::ColliderType::Actor)
         .id();
-    physics::create_physics_player(commands, e, position);
+    physics::create_physics_actor(commands, e, position);
 }
 
 pub fn reset_control_mode(
@@ -146,7 +146,7 @@ pub fn reset_action_timer(timer: &mut ActionTimer, t: f32) {
 }
 
 
-pub fn handle_players_action_finish(
+pub fn handle_actors_action_finish(
     time: Res<Time>,
     mut ball_events: EventWriter<ball::BallEvent>,
     mut query: Query<(Entity, &mut Actor, &mut Transform, &mut ActionTimer, &animation::Animation, &mut BallPossession)>,
@@ -193,7 +193,7 @@ pub fn handle_players_action_finish(
     }
 }
 
-pub fn handle_player_action_start(
+pub fn handle_actor_action_start(
     mut ball_events: EventWriter<ball::BallEvent>,
     mut query: Query<(
         Entity,
@@ -291,8 +291,8 @@ pub fn update_helpers(
             continue;
         }
 
-        for (helper_entity, player_entity) in query_movement_helper.iter() {
-            if player_entity.player == entity {
+        for (helper_entity, actor_entity) in query_movement_helper.iter() {
+            if actor_entity.actor == entity {
                 commands.entity(helper_entity).despawn_recursive();
             }
         }

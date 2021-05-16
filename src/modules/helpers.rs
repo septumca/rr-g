@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use super::{
-    player,
+    actor,
 };
 
 
@@ -8,7 +8,7 @@ const LINE_THICKNESS: f32 = 2.0;
 
 pub struct SelectedHelper {}
 pub struct MovementHelper {
-    pub player: Entity
+    pub actor: Entity
 }
 
 
@@ -39,13 +39,13 @@ pub fn spawn_selected_helper(commands: &mut Commands, helper_materials: &Res<Hel
 pub fn deselect_all(
     mut commands: Commands,
     mut query_helper: Query<&mut Transform, With<SelectedHelper>>,
-    query_selected: Query<Entity, (With<player::Actor>, With<player::Selected>)>
+    query_selected: Query<Entity, (With<actor::Actor>, With<actor::Selected>)>
 ) {
     if let Ok(mut selected_helper_transform) = query_helper.single_mut() {
         selected_helper_transform.translation.z = -1.0;
     }
-    for player_selected in query_selected.iter() {
-        commands.entity(player_selected).remove::<player::Selected> ();
+    for actor_selected in query_selected.iter() {
+        commands.entity(actor_selected).remove::<actor::Selected> ();
     }
 }
 
@@ -63,7 +63,7 @@ pub fn spawn_movement_helper(
     helper_materials: &Res<HelperMaterials>,
     to: Vec2,
     from: Vec2,
-    player: Entity
+    actor: Entity
 ) {
     let line_data = calculate_line(Vec2::ZERO, from - to);
     commands
@@ -74,7 +74,7 @@ pub fn spawn_movement_helper(
             ..Default::default()
         })
         .insert(MovementHelper {
-            player
+            actor
         })
         .with_children(|parent| {
             parent.
@@ -94,7 +94,7 @@ pub fn spawn_movement_helper(
 pub fn update_selected_helper(
     mut query: QuerySet<(
         Query<&mut Transform, With<SelectedHelper>>,
-        Query<&Transform, (With<player::Actor>, With<player::Selected>)>
+        Query<&Transform, (With<actor::Actor>, With<actor::Selected>)>
     )>
 ) {
     let selected = query.q1().single();
