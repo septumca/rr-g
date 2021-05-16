@@ -85,10 +85,10 @@ pub fn setup_actor_sprites(
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
 ) {
-    let texture_handle = asset_server.load("actors-red.png");
+    let texture_handle = asset_server.load("players-red.png");
     let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(48.0, 48.0), 14, 1);
     let texture_atlas_handle_red = texture_atlases.add(texture_atlas);
-    let texture_handle = asset_server.load("actors-blue.png");
+    let texture_handle = asset_server.load("players-blue.png");
     let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(48.0, 48.0), 14, 1);
     let texture_atlas_handle_blue = texture_atlases.add(texture_atlas);
 
