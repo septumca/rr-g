@@ -20,8 +20,6 @@ use modules::{
 };
 
 
-
-
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -117,6 +115,9 @@ fn main() {
                     .label("handle_player_action_start")
                     .after("handle_players_action_finish")
                     .after("handle_collision_events")
+                )
+                .with_system(player::update_sprite.system()
+                    .after("handle_player_action_start")
                 )
                 .with_system(ball::handle_ball_events.system()
                     .label("handle_ball_events")

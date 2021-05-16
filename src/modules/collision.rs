@@ -6,6 +6,7 @@ use bevy_rapier2d::{
     },
 };
 use super::{
+    ball,
     player,
 };
 
@@ -61,8 +62,8 @@ pub fn get_contact_events(
 }
 
 pub fn handle_collision_events(
-    mut commands: Commands,
     mut events: EventReader<RRCollisionEvent>,
+    mut events_ball: EventWriter<ball::BallEvent>,
     mut query: Query<&mut player::Actor>
 ) {
     for event in events.iter() {
@@ -82,12 +83,14 @@ pub fn handle_collision_events(
             };
             let actor = query.get_mut(actor_entity).unwrap();
             let can_pickup_ball = match actor.act_action {
-                player::ActorAction::Recovering(_) => false,
+                player::ActorAction::Recovering(_) | player::ActorAction::Throwing { x: _, y: _ } => false,
                 _ => true
             };
             if can_pickup_ball {
-                commands.entity(ball_entity).despawn();
-                commands.entity(actor_entity).insert(player::HasBall {});
+                events_ball.send(ball::BallEvent::Pickup {
+                    actor_entity,
+                    ball_entity
+                });
             }
         }
     }

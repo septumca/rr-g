@@ -10,26 +10,29 @@ pub fn handle_keyboard_input(
     mut keyboard_input: ResMut<Input<KeyCode>>,
     mut app_state: ResMut<State<states::AppState>>,
     mut control_mode: ResMut<player::CurrentControlMode>,
-    query: Query<(&player::HasBall, &player::Selected)>
+    query: Query<&player::BallPossession, With<player::Selected>>
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         app_state.set(states::AppState::Play).unwrap();
         keyboard_input.reset(KeyCode::Space); //according to https://bevy-cheatbook.github.io/programming/states.html#with-input
     }
-    if keyboard_input.just_pressed(KeyCode::Return) {
-        control_mode.0 = match control_mode.0 {
-            player::ControlMode::Throw => {
-                player::ControlMode::Run
-            }
-            player::ControlMode::Run => {
-                if query.single().is_ok() {
-                    player::ControlMode::Throw
-                } else {
+    if let Ok(ball_possession) = query.single() {
+        if keyboard_input.just_pressed(KeyCode::Return) && ball_possession.0 {
+            control_mode.0 = match control_mode.0 {
+                player::ControlMode::Throw => {
                     player::ControlMode::Run
                 }
-            }
-        };
+                player::ControlMode::Run => {
+                    if query.single().is_ok() {
+                        player::ControlMode::Throw
+                    } else {
+                        player::ControlMode::Run
+                    }
+                }
+            };
+        }
     }
+
 }
 
 pub fn handle_mouse_click(

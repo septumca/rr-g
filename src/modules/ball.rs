@@ -7,6 +7,7 @@ use bevy_rapier2d::{
 };
 use super::{
     animation,
+    player,
     physics,
     collision,
 };
@@ -14,8 +15,9 @@ pub struct Ball {}
 pub struct BallThrown(Vec2);
 
 pub enum BallEvent {
-    Drop { position: Vec2, velocity_vector: Vec2 },
-    Throw { position: Vec2, throw_target: Vec2 },
+    Pickup { actor_entity: Entity, ball_entity: Entity },
+    Drop { entity: Entity, position: Vec2, velocity_vector: Vec2 },
+    Throw { entity: Entity, position: Vec2, throw_target: Vec2 },
 }
 
 pub struct BallTexture(Handle<TextureAtlas>);
@@ -74,10 +76,14 @@ pub fn handle_ball_events(
     mut commands: Commands,
     mut events: EventReader<BallEvent>,
     ball_sprite: Res<BallTexture>,
+    mut query_player: Query<&mut player::BallPossession, With<player::Actor>>
 ) {
     for event in events.iter() {
         match *event {
-            BallEvent::Drop { position, velocity_vector} => {
+            BallEvent::Drop { entity, position, velocity_vector} => {
+                if let Ok(mut ball_possession) = query_player.get_mut(entity) {
+                    ball_possession.0 = false;
+                }
                 let norm_vel = velocity_vector.normalize();
                 let ball_position = Vec2::new(
                     position.x + norm_vel.x*16.0,
@@ -86,7 +92,10 @@ pub fn handle_ball_events(
                 let ball_velocity = Vec2::new(velocity_vector.x, velocity_vector.y) * 1.5;
                 spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, None);
             },
-            BallEvent::Throw { position, throw_target} => {
+            BallEvent::Throw { entity, position, throw_target} => {
+                if let Ok(mut ball_possession) = query_player.get_mut(entity) {
+                    ball_possession.0 = false;
+                }
                 let delta = (throw_target - position).normalize();
                 let ball_position = Vec2::new(
                     position.x + delta.x*32.0,
@@ -95,6 +104,12 @@ pub fn handle_ball_events(
                 let ball_velocity = Vec2::new(delta.x, delta.y) * 300.0; //TODO: replace with throw power
                 spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, Some(throw_target));
             },
+            BallEvent::Pickup { actor_entity, ball_entity} => {
+                if let Ok(mut ball_possession) = query_player.get_mut(actor_entity) {
+                    ball_possession.0 = true;
+                }
+                commands.entity(ball_entity).despawn();
+            }
         }
     }
 }

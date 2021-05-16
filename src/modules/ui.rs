@@ -88,13 +88,13 @@ fn state_changed(
 }
 
 fn selected_player_changed(
-    query_player: Query<(Entity, &player::Actor, Option<&player::HasBall>), With<player::Selected>>,
+    query_player: Query<(Entity, &player::Actor, &player::BallPossession), With<player::Selected>>,
     mut query_text: Query<&mut Text, With<SelectedText>>
 ) {
     let q_result = query_player.single();
     let msg = if q_result.is_ok() {
-        let (entity, actor, has_ball) = q_result.unwrap();
-        format!("Selected player: {:?}, state: {:?}, has ball: {}", entity, actor.act_action, has_ball.is_some())
+        let (entity, actor, ball_possession) = q_result.unwrap();
+        format!("Selected player: {:?}, state: {:?}, has ball: {}", entity, actor.act_action, ball_possession.0)
     } else {
         format!("No player selected")
     };
