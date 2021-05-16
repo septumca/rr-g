@@ -1,4 +1,8 @@
 use bevy::prelude::*;
+use super::{
+    states,
+};
+
 
 pub struct RoundTimer {}
 
@@ -19,7 +23,7 @@ pub fn update_timer(
     mut commands: Commands,
     time: Res<Time>,
     mut query: Query<(Entity, &mut Timer), With<RoundTimer>>,
-    mut app_state: ResMut<State<super::states::AppState>>
+    mut app_state: ResMut<State<states::AppState>>
 ) {
     let timer_result = query.single_mut();
     if timer_result.is_err() {
@@ -29,6 +33,6 @@ pub fn update_timer(
     timer.tick(time.delta());
     if timer.finished() {
         commands.entity(timer_entity).despawn();
-        app_state.set(super::states::AppState::Plan).unwrap();
+        app_state.set(states::AppState::Plan).unwrap();
     }
 }

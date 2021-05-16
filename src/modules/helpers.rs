@@ -1,4 +1,8 @@
 use bevy::prelude::*;
+use super::{
+    player,
+};
+
 
 const LINE_THICKNESS: f32 = 2.0;
 
@@ -35,13 +39,13 @@ pub fn spawn_selected_helper(commands: &mut Commands, helper_materials: &Res<Hel
 pub fn deselect_all(
     mut commands: Commands,
     mut query_helper: Query<&mut Transform, With<SelectedHelper>>,
-    query_selected: Query<Entity, (With<super::player::Actor>, With<super::player::Selected>)>
+    query_selected: Query<Entity, (With<player::Actor>, With<player::Selected>)>
 ) {
     if let Ok(mut selected_helper_transform) = query_helper.single_mut() {
         selected_helper_transform.translation.z = -1.0;
     }
     for player_selected in query_selected.iter() {
-        commands.entity(player_selected).remove::<super::player::Selected> ();
+        commands.entity(player_selected).remove::<player::Selected> ();
     }
 }
 
@@ -90,7 +94,7 @@ pub fn spawn_movement_helper(
 pub fn update_selected_helper(
     mut query: QuerySet<(
         Query<&mut Transform, With<SelectedHelper>>,
-        Query<&Transform, (With<super::player::Actor>, With<super::player::Selected>)>
+        Query<&Transform, (With<player::Actor>, With<player::Selected>)>
     )>
 ) {
     let selected = query.q1().single();

@@ -1,9 +1,14 @@
 use bevy::prelude::*;
 
+use super:: {
+    player,
+    states,
+};
+
 
 pub struct SelectedText;
 pub struct StateText;
-pub struct ActorStateText;
+pub struct ControlModeText;
 
 pub struct FontMaterials {
     debug_font: Handle<Font>
@@ -11,7 +16,7 @@ pub struct FontMaterials {
 
 const TEXT_SIZE: f32 = 10.0;
 
-pub fn update_text(text: &mut Text, value: String) {
+fn update_text(text: &mut Text, value: String) {
     text.sections[0].value = value;
 }
 
@@ -58,6 +63,48 @@ pub fn spawn_ui(commands: &mut Commands, fonts: &Res<FontMaterials>) {
         .spawn_bundle(create_debug_text_bundle(&fonts, "No state".to_string(), 20.0))
         .insert(StateText);
     commands
-        .spawn_bundle(create_debug_text_bundle(&fonts, "TODO: Actor Debug".to_string(), 35.0))
-        .insert(ActorStateText);
+        .spawn_bundle(create_debug_text_bundle(&fonts, "No control mode".to_string(), 35.0))
+        .insert(ControlModeText);
+}
+
+fn control_mode_changed(
+    control_mode: Res<player::CurrentControlMode>,
+    mut query_text: Query<&mut Text, With<ControlModeText>>
+) {
+    if control_mode.is_changed() {
+        let mut text = query_text.single_mut().expect("Cannot access Diagnostic Text");
+        update_text(&mut text, format!("Control mode: {:?}", control_mode.0));
+    }
+}
+
+fn state_changed(
+    app_state: Res<State<states::AppState>>,
+    mut query_text: Query<&mut Text, With<StateText>>
+) {
+    if app_state.is_changed() {
+        let mut text = query_text.single_mut().expect("Cannot access Diagnostic Text");
+        update_text(&mut text, format!("State: {:?}", app_state.current()));
+    }
+}
+
+fn selected_player_changed(
+    query_player: Query<(Entity, &player::Actor, Option<&player::HasBall>), With<player::Selected>>,
+    mut query_text: Query<&mut Text, With<SelectedText>>
+) {
+    let q_result = query_player.single();
+    let msg = if q_result.is_ok() {
+        let (entity, actor, has_ball) = q_result.unwrap();
+        format!("Selected player: {:?}, state: {:?}, has ball: {}", entity, actor.act_action, has_ball.is_some())
+    } else {
+        format!("No player selected")
+    };
+    let mut text = query_text.single_mut().expect("Cannot access Diagnostic Text");
+    update_text(&mut text, msg);
+}
+
+pub fn ui_changes_listeners() -> SystemSet {
+    SystemSet::new()
+        .with_system(control_mode_changed.system())
+        .with_system(state_changed.system())
+        .with_system(selected_player_changed.system())
 }

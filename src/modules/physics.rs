@@ -53,12 +53,14 @@ pub fn create_physics_ball(
     commands: &mut Commands,
     e: Entity,
     position: Vec2,
-    velocity_vector: Vec2
+    velocity_vector: Vec2,
+    linear_damping: f32,
 ) {
     commands.entity(e).insert(
     RigidBodyBuilder::new_dynamic()
         .translation(position.x, position.y)
         .linvel(velocity_vector.x, velocity_vector.y)
+        .linear_damping(linear_damping)
         .lock_rotations()
     );
     commands.entity(e).insert(

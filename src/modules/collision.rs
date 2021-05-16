@@ -5,6 +5,9 @@ use bevy_rapier2d::{
         geometry::{ColliderSet, ContactEvent::Started},
     },
 };
+use super::{
+    player,
+};
 
 pub struct RRCollisionEvent {
     a: (Entity, ColliderType),
@@ -18,9 +21,9 @@ pub enum ColliderType {
 }
 
 fn resolve_player_to_player_start(
-    mut actor: Mut<super::player::Actor>,
+    mut actor: Mut<player::Actor>,
 ) {
-    actor.set_action(super::player::ActorAction::Recovering(0.3));
+    actor.set_action(player::ActorAction::Recovering(0.3));
 }
 
 pub fn get_contact_events(
@@ -60,7 +63,7 @@ pub fn get_contact_events(
 pub fn handle_collision_events(
     mut commands: Commands,
     mut events: EventReader<RRCollisionEvent>,
-    mut query: Query<&mut super::player::Actor>
+    mut query: Query<&mut player::Actor>
 ) {
     for event in events.iter() {
         let (e1, e1_type) = event.a;
@@ -79,12 +82,12 @@ pub fn handle_collision_events(
             };
             let actor = query.get_mut(actor_entity).unwrap();
             let can_pickup_ball = match actor.act_action {
-                super::player::ActorAction::Recovering(_) => false,
+                player::ActorAction::Recovering(_) => false,
                 _ => true
             };
             if can_pickup_ball {
                 commands.entity(ball_entity).despawn();
-                commands.entity(actor_entity).insert(super::player::HasBall {});
+                commands.entity(actor_entity).insert(player::HasBall {});
             }
         }
     }
