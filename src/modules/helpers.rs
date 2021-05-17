@@ -15,14 +15,16 @@ pub struct MovementHelper {
 pub struct HelperMaterials {
     pub selection: Handle<ColorMaterial>,
     pub movement_target: Handle<ColorMaterial>,
-    pub movement_line: Handle<ColorMaterial>
+    pub movement_line: Handle<ColorMaterial>,
+    pub tackle_zone: Handle<ColorMaterial>,
 }
 
 pub fn setup_helper_materials(commands: &mut Commands, asset_server: &Res<AssetServer>, materials: &mut ResMut<Assets<ColorMaterial>>) {
     commands.insert_resource(HelperMaterials {
         selection: materials.add(asset_server.load("selectbox.png").into()),
         movement_target: materials.add(asset_server.load("targetpos.png").into()),
-        movement_line: materials.add(Color::rgb(0.67, 0.2, 0.2).into())
+        movement_line: materials.add(Color::rgb(0.67, 0.2, 0.2).into()),
+        tackle_zone: materials.add(asset_server.load("tacklezone.png").into()),
     });
 }
 

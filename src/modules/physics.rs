@@ -18,10 +18,22 @@ pub fn set_velocity(
     }
 }
 
+pub fn get_velocity(
+    rigid_body_handle: &RigidBodyHandleComponent,
+    rigid_body_set: &ResMut<RigidBodySet>,
+) -> Option<Vec2> {
+    rigid_body_set
+        .get(rigid_body_handle.handle())
+        .and_then(|rb| {
+            let rb_vel = rb.linvel();
+            Some(Vec2::new(rb_vel.x, rb_vel.y))
+        })
+}
+
 pub fn create_physics_actor(
     commands: &mut Commands,
     e: Entity,
-    position: Vec2
+    position: Vec2,
 ) {
     commands.entity(e).insert(
     RigidBodyBuilder::new_dynamic()

@@ -1,8 +1,5 @@
 use bevy::prelude::*;
-use bevy_rapier2d::{
-    physics::{RapierConfiguration, RapierPhysicsPlugin},
-    rapier::math::Vector,
-};
+use bevy_rapier2d::{physics::{RapierConfiguration, RapierPhysicsPlugin}, rapier::{math::Vector}};
 
 mod modules;
 use modules::{
@@ -17,6 +14,7 @@ use modules::{
     collision,
     physics,
     animation,
+    team,
 };
 
 
@@ -48,8 +46,10 @@ fn initialize_game(
     commands.spawn_bundle(UiCameraBundle::default());
 
     ui::spawn_ui(&mut commands, &fonts);
-    actor::spawn_actor(&mut commands, &actor_sprites, Vec2::new(100.0, 0.0), true, true);
-    actor::spawn_actor(&mut commands, &actor_sprites, Vec2::new(-100.0, 0.0), false, false);
+    actor::spawn_actor(&mut commands, &actor_sprites, Vec2::new(100.0, 100.0), team::Team::Away);
+    // actor::spawn_actor(&mut commands, &actor_sprites, Vec2::new(100.0, -100.0), team::Team::Away);
+    actor::spawn_actor(&mut commands, &actor_sprites, Vec2::new(-100.0, 0.0), team::Team::Home);
+    // actor::spawn_actor(&mut commands, &actor_sprites, Vec2::new(-100.0, -100.0), team::Team::Home);
     ball::spawn_ball(&mut commands, &ball_sprite, Vec2::new(0.0, 0.0), Vec2::ZERO, None);
     helpers::spawn_selected_helper(&mut commands, &helper_materiarls);
 }
@@ -70,6 +70,7 @@ fn main() {
         .add_plugin(RapierPhysicsPlugin)
         .add_event::<collision::RRCollisionEvent>()
         .add_event::<ball::BallEvent>()
+        .add_event::<actor::PlayerEvents>()
         .add_startup_system(setup.system())
         .add_startup_stage("game_initialization", SystemStage::single(initialize_game.system()))
         .add_system_set(ui::ui_changes_listeners())
@@ -97,35 +98,39 @@ fn main() {
             SystemSet::on_update(states::AppState::Play)
                 .with_system(animation::animate_sprite.system())
                 .with_system(round::update_timer.system())
-                .with_system(actor::handle_actors_action_finish.system()
-                    .label("handle_actors_action_finish")
+                .with_system(actor::handle_actors_refresh_action.system()
+                    .label("handle_actors_refresh_action")
                 )
                 .with_system(collision::get_contact_events.system()
                     .label("get_contact_events")
+                    .after("handle_actors_refresh_action")
                 )
                 .with_system(collision::handle_collision_events.system()
                     .label("handle_collision_events")
                     .after("get_contact_events")
                 )
-                .with_system(ball::update_thrown_ball.system()
-                    .label("update_thrown_ball")
-                    .after("handle_collision_events")
-                )
                 .with_system(actor::handle_actor_action_start.system()
                     .label("handle_actor_action_start")
-                    .after("handle_actors_action_finish")
                     .after("handle_collision_events")
                 )
-                .with_system(actor::update_sprite.system()
+                .with_system(actor::handle_player_events.system()
+                    .label("handle_player_events")
                     .after("handle_actor_action_start")
                 )
                 .with_system(ball::handle_ball_events.system()
                     .label("handle_ball_events")
-                    .before("update_thrown_ball")
-                    .after("handle_actor_action_start"))
-                .with_system(actor::update_helpers.system()
-                    .after("handle_actor_action_start")
+                    .after("handle_player_events")
+                )
+                .with_system(ball::update_thrown_ball.system()
+                    .label("update_thrown_ball")
+                    .after("handle_ball_events")
+                )
+                .with_system(actor::update_sprite.system()
+                    .label("update_sprite")
                     .after("update_thrown_ball")
+                )
+                .with_system(actor::update_helpers.system()
+                    .after("update_sprite")
                 )
         )
         .add_system_set(
