@@ -58,7 +58,7 @@ pub fn handle_collision_events(
     mut events: EventReader<RRCollisionEvent>,
     mut events_ball: EventWriter<ball::BallEvent>,
     query: Query<&actor::Actor>,
-    mut events_actor: EventWriter<actor::PlayerEvents>,
+    mut events_actor: EventWriter<actor::ActorEvents>,
 ) {
     for event in events.iter() {
         let (e1, e1_type) = event.a;
@@ -70,12 +70,12 @@ pub fn handle_collision_events(
 
             events_actor.send_batch(
                 vec![
-                    actor::PlayerEvents::ActorsCollided {
+                    actor::ActorEvents::ActorsCollided {
                         actor_entity: e1,
                         actor_action: actor1.act_action,
                         other_actor_action: actor2.act_action
                     },
-                    actor::PlayerEvents::ActorsCollided {
+                    actor::ActorEvents::ActorsCollided {
                         actor_entity: e2,
                         actor_action: actor2.act_action,
                         other_actor_action: actor1.act_action

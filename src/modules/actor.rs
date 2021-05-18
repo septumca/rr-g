@@ -17,7 +17,8 @@ use super::{
 
 const PLAYER_RUN_SPEED: f32 = 100.0;
 const PLAYER_TACKLE_SPEED: f32 = 225.0;
-const PLAYER_TACKLE_RADIUS: f32 = 200.0;
+const PLAYER_GUARD_RADIUS: f32 = 60.0;
+const PLAYER_TACKLE_RADIUS: f32 = 120.0;
 const PLAYER_RECOVERY_TIME_BUMPED: f32 = 0.3;
 const PLAYER_RECOVERY_TIME_TACKLED: f32 = 0.9;
 pub struct ActorTextures {
@@ -34,7 +35,7 @@ pub enum ControlMode {
     Throw
 }
 
-pub enum PlayerEvents{
+pub enum ActorEvents{
     LookForTackle {
         entity: Entity,
         team: team::Team,
@@ -103,10 +104,10 @@ pub fn setup_actor_sprites(
     texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
 ) {
     let texture_handle = asset_server.load("players-red.png");
-    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(48.0, 48.0), 14, 1);
+    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(48.0, 48.0), 13, 1);
     let texture_atlas_handle_red = texture_atlases.add(texture_atlas);
     let texture_handle = asset_server.load("players-blue.png");
-    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(48.0, 48.0), 14, 1);
+    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(48.0, 48.0), 13, 1);
     let texture_atlas_handle_blue = texture_atlases.add(texture_atlas);
 
     commands.insert_resource(ActorTextures{
@@ -186,7 +187,7 @@ pub fn handle_actors_refresh_action(
     time: Res<Time>,
     mut ball_events: EventWriter<ball::BallEvent>,
     mut query: Query<(Entity, &team::Team, &mut Actor, &mut Transform, &mut ActionTimer, &animation::Animation, &mut BallPossession)>,
-    mut event_tackle_target: EventWriter<PlayerEvents>,
+    mut event_tackle_target: EventWriter<ActorEvents>,
 ) {
     for (
         entity,
@@ -199,7 +200,7 @@ pub fn handle_actors_refresh_action(
     ) in query.iter_mut() {
         let is_action_finished = match actor.act_action {
             ActorAction::Lookout => {
-                event_tackle_target.send(PlayerEvents::LookForTackle {
+                event_tackle_target.send(ActorEvents::LookForTackle {
                     entity,
                     team: *team,
                     position: Vec2::new(transform.translation.x, transform.translation.y)
@@ -210,7 +211,10 @@ pub fn handle_actors_refresh_action(
             ActorAction::Running { x, y} | ActorAction::Tackling { x, y } => {
                 let d_x = transform.translation.x - x;
                 let d_y = transform.translation.y - y;
-                d_x.abs() < 1.0 && d_y.abs() < 1.0
+                //when this value is too big (e.g. 10.0), then player get from tackle action too soon into idle
+                //and it can result into tackle->idle and then colliding with running player
+                //test with from running from -100.0, 100.0 to 132.0, 48.0 and tackling player standing at 100, 100
+                d_x.abs() < 2.0 && d_y.abs() < 2.0
             },
             ActorAction::Throwing { x, y } => {
                 if animation.finished {
@@ -268,7 +272,7 @@ pub fn handle_actor_action_start(
                 let delta = (Vec3::new(x, y, transform.translation.z) - transform.translation).normalize() * PLAYER_TACKLE_SPEED ;
                 sprite.flip_x = delta.x < 0.0;
                 physics::set_velocity(rigid_body_handle, &mut rigid_body_set, Vec2::new(delta.x, delta.y));
-                animation.update_sprites_indexes(vec![10, 11, 12, 13], true);
+                animation.update_sprites_indexes(vec![10, 11, 12], false);
             }
             ActorAction::Running { x, y} => {
                 let delta = (Vec3::new(x, y, transform.translation.z) - transform.translation).normalize() * PLAYER_RUN_SPEED;
@@ -298,9 +302,10 @@ fn get_tackle_hit_position(target_position: Vec2, target_velocity: Vec2, origin_
     loop {
         let tackle_velocity = (target_position - origin_position + (target_velocity*step))/step; //calculate needed velocity for time step
         let new_magnitude = tackle_velocity.length_squared();
-        //if it's possible for player to reach this velocity then return it
-        if new_magnitude < player_speed_squared {
-            return Some(origin_position + (tackle_velocity*step));
+        let hit_position = origin_position + (tackle_velocity*step);
+        //if it's possible for player to reach this velocity and if hit position is in tackle range then return it
+        if new_magnitude < player_speed_squared && (hit_position - origin_position).length_squared() < PLAYER_TACKLE_RADIUS.powi(2) {
+            return Some(hit_position);
         }
         //if the new magnitude is higher, e.g. target is getting away and there is no chance to catch it + limit number of calculation to prevent infinite loops
         if new_magnitude > last_magnitude || step > 100.0 {
@@ -312,7 +317,7 @@ fn get_tackle_hit_position(target_position: Vec2, target_velocity: Vec2, origin_
 }
 
 pub fn handle_player_events(
-    mut events: EventReader<PlayerEvents>,
+    mut events: EventReader<ActorEvents>,
     mut ball_events: EventWriter<ball::BallEvent>,
     mut query: Query<(
         &mut Actor,
@@ -326,7 +331,7 @@ pub fn handle_player_events(
 ) {
     for event in events.iter() {
         match event {
-            PlayerEvents::ActorsCollided { actor_entity, actor_action, other_actor_action} => {
+            ActorEvents::ActorsCollided { actor_entity, actor_action, other_actor_action} => {
                 let recovery_time = match *other_actor_action {
                     ActorAction::Tackling { x: _, y: _ } => PLAYER_RECOVERY_TIME_TACKLED,
                     ActorAction::Running { x: _, y: _ } => {
@@ -339,8 +344,8 @@ pub fn handle_player_events(
                 };
                 let (
                     mut actor,
-                    _,
-                    _,
+                    _team,
+                    _is_tackle_target,
                     ball_possession,
                     transform,
                     rigid_body_handle
@@ -357,14 +362,14 @@ pub fn handle_player_events(
                     });
                 }
             },
-            PlayerEvents::LookForTackle { entity, position, team } => {
-                let player_tackle_radius_squared = PLAYER_TACKLE_RADIUS.powi(2);
+            ActorEvents::LookForTackle { entity, position, team } => {
+                let player_tackle_radius_squared = PLAYER_GUARD_RADIUS.powi(2);
                 let mut hit_position = None;
                 for (
                     actor,
                     team_target,
                     mut is_tackle_target,
-                    _,
+                    _ball_possession,
                     transform,
                     rigid_body_handle
                 ) in query.iter_mut() {
@@ -386,7 +391,14 @@ pub fn handle_player_events(
                 }
 
                 if let Some(hp) = hit_position {
-                    let (mut actor, _, _, _, _, _) =  query.get_mut(*entity).expect("Player that spawned LookForTackle event no longer exists!");
+                    let (
+                        mut actor,
+                        _team,
+                        _is_tackle_target,
+                        _ball_possession,
+                        _transform,
+                        _rigid_body_handle
+                    ) =  query.get_mut(*entity).expect("Player that spawned LookForTackle event no longer exists!");
                     actor.set_action(ActorAction::Tackling { x: hp.x, y: hp. y });
                     actor.queue_action(ActorAction::Idle);
                 }
