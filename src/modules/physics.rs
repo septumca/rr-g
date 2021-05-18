@@ -8,13 +8,19 @@ use bevy_rapier2d::{
     }
 };
 
-pub fn set_velocity(
+pub fn set_rb_properties(
     rigid_body_handle: &RigidBodyHandleComponent,
     rigid_body_set: &mut ResMut<RigidBodySet>,
-    velocity: Vec2,
+    velocity: Option<Vec2>,
+    linear_damping: Option<f32>,
 ) {
     if let Some(rigid_body) = rigid_body_set.get_mut(rigid_body_handle.handle()) {
-        rigid_body.set_linvel(Vector2::new(velocity.x, velocity.y), true);
+        if let Some(v) = velocity {
+            rigid_body.set_linvel(Vector2::new(v.x, v.y), true);
+        }
+        if let Some(ld) = linear_damping {
+            rigid_body.linear_damping = ld;
+        }
     }
 }
 

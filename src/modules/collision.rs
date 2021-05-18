@@ -73,11 +73,13 @@ pub fn handle_collision_events(
                     actor::ActorEvents::ActorsCollided {
                         actor_entity: e1,
                         actor_action: actor1.act_action,
+                        other_actor_entity: e2,
                         other_actor_action: actor2.act_action
                     },
                     actor::ActorEvents::ActorsCollided {
                         actor_entity: e2,
                         actor_action: actor2.act_action,
+                        other_actor_entity: e1,
                         other_actor_action: actor1.act_action
                     }
                 ].into_iter()

@@ -55,7 +55,6 @@ pub fn spawn_ball(
     if throw_target.is_some() {
         commands.entity(e).insert(BallThrown(throw_target.unwrap()));
     }
-
     physics::create_physics_ball(commands, e, position, velocity_vector, linear_damping);
 }
 
@@ -67,7 +66,7 @@ pub fn update_thrown_ball(
         let d_x = transform.translation.x - ball_thrown.0.x;
         let d_y = transform.translation.y - ball_thrown.0.y;
         if d_x.abs() < 10.0 && d_y.abs() < 10.0 {
-            physics::set_velocity(rigid_body_handle, &mut rigid_body_set,  Vec2::ZERO);
+            physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set,  Some(Vec2::ZERO), None);
         }
     }
 }
@@ -76,13 +75,13 @@ pub fn handle_ball_events(
     mut commands: Commands,
     mut events: EventReader<BallEvent>,
     ball_sprite: Res<BallTexture>,
-    mut query_actor: Query<&mut actor::BallPossession, With<actor::Actor>>
+    mut query_actor: Query<(&mut actor::Actor, &mut actor::BallPossession, &mut animation::Animation)>
 ) {
     for event in events.iter() {
         match *event {
             BallEvent::Drop { entity, position, velocity_vector} => {
-                if let Ok(mut ball_possession) = query_actor.get_mut(entity) {
-                    ball_possession.0 = false;
+                if let Ok((mut actor, mut ball_possession, mut animation)) = query_actor.get_mut(entity) {
+                    actor::change_ball_possession(&mut actor, &mut animation, &mut ball_possession, false);
                 }
                 let norm_vel = velocity_vector.normalize();
                 let ball_position = Vec2::new(
@@ -93,8 +92,8 @@ pub fn handle_ball_events(
                 spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, None);
             },
             BallEvent::Throw { entity, position, throw_target} => {
-                if let Ok(mut ball_possession) = query_actor.get_mut(entity) {
-                    ball_possession.0 = false;
+                if let Ok((mut actor, mut ball_possession, mut animation)) = query_actor.get_mut(entity) {
+                    actor::change_ball_possession(&mut actor, &mut animation, &mut ball_possession, false);
                 }
                 let delta = (throw_target - position).normalize();
                 let ball_position = Vec2::new(
@@ -105,8 +104,8 @@ pub fn handle_ball_events(
                 spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, Some(throw_target));
             },
             BallEvent::Pickup { actor_entity, ball_entity} => {
-                if let Ok(mut ball_possession) = query_actor.get_mut(actor_entity) {
-                    ball_possession.0 = true;
+                if let Ok((mut actor, mut ball_possession, mut animation)) = query_actor.get_mut(actor_entity) {
+                    actor::change_ball_possession(&mut actor, &mut animation, &mut ball_possession, true);
                 }
                 commands.entity(ball_entity).despawn();
             }

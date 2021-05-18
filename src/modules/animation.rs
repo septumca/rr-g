@@ -26,7 +26,6 @@ impl Animation {
     pub fn set_sprite_indexes(&mut self, sprite_indexes: Vec<usize>) {
         self.sprite_indexes = sprite_indexes;
         if self.act_frame_index >= self.sprite_indexes.len() {
-            println!("Wanting to set sprite indexes with current index {} out of bounds of {:?}! Resseting current index to 0", self.act_frame_index, self.sprite_indexes);
             self.act_frame_index = 0;
         }
     }
