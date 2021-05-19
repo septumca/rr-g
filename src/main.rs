@@ -131,10 +131,10 @@ fn main() {
         )
         .add_system_set(
             SystemSet::on_exit(states::AppState::Play)
-                .with_system(actor::reset_move_actions.system().label("reset_movement"))
+                .with_system(actor::after_round_reset.system().label("after_round_reset"))
                 .with_system(actor::handle_actor_action_start.system()
                     .label("actor_state_change")
-                    .after("reset_movement")
+                    .after("after_round_reset")
                 )
                 .with_system(physics::pause_physics.system()
                     .after("actor_state_change")

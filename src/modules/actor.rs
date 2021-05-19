@@ -62,16 +62,18 @@ pub enum ActorAction {
 pub struct Actor {
     pub act_action: ActorAction,
     queued_action: Option<ActorAction>,
+    has_tackled: bool,
 }
 impl Actor {
     pub fn new() -> Self {
         Self {
             act_action: ActorAction::Lookout,
-            queued_action: None
+            queued_action: None,
+            has_tackled: false,
         }
     }
     pub fn trigger_queued_action(&mut self) {
-        self.act_action = self.queued_action.unwrap_or(ActorAction::Idle);
+        self.act_action = self.queued_action.unwrap_or(if self.has_tackled { ActorAction::Idle } else { ActorAction::Lookout });
     }
     pub fn set_action(&mut self, action: ActorAction) {
         self.act_action = action;
@@ -79,7 +81,7 @@ impl Actor {
     }
     pub fn queue_action(&mut self, action: ActorAction) {
         match self.act_action {
-            ActorAction::Idle => {
+            ActorAction::Idle | ActorAction::Lookout => {
                 self.set_action(action);
             },
             _ => {
@@ -164,7 +166,7 @@ pub fn reset_control_mode(
     control_mode.0 = ControlMode::Run;
 }
 
-pub fn reset_move_actions(
+pub fn after_round_reset(
     mut query: Query<(&mut Actor, &mut IsTackleTarget, &BallPossession)>,
 ) {
     for (mut actor, mut is_tackle_target, ball_possession) in query.iter_mut() {
@@ -174,6 +176,7 @@ pub fn reset_move_actions(
             },
             _ => ()
         }
+        actor.has_tackled = false;
         is_tackle_target.0 = false;
     }
 }
@@ -246,7 +249,7 @@ pub fn handle_actors_refresh_action(
 
 pub fn handle_actor_action_start(
     mut query: Query<(
-        &Actor,
+        &mut Actor,
         &Transform,
         &RigidBodyHandleComponent,
         &mut TextureAtlasSprite,
@@ -257,7 +260,7 @@ pub fn handle_actor_action_start(
     mut rigid_body_set: ResMut<RigidBodySet>,
 ) {
     for (
-        actor,
+        mut actor,
         transform,
         rigid_body_handle,
         mut sprite,
@@ -275,6 +278,7 @@ pub fn handle_actor_action_start(
                 sprite.flip_x = delta.x < 0.0;
                 animation.update_sprites_indexes(vec![10, 11, 12], false);
                 physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set, Some(Vec2::new(delta.x, delta.y)), Some(0.0));
+                actor.has_tackled = true;
             }
             ActorAction::Running { x, y} => {
                 let delta = (Vec3::new(x, y, transform.translation.z) - transform.translation).normalize() * PLAYER_RUN_SPEED;
