@@ -2,9 +2,18 @@ use bevy::prelude::*;
 use super::{
     actor,
     helpers,
-    utils,
     states,
+    utils
 };
+
+pub fn handle_keyboard_input_pre_round(
+    keyboard_input: ResMut<Input<KeyCode>>,
+    mut app_state: ResMut<State<states::AppState>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Return) {
+        app_state.set(states::AppState::MovingToStartPosition).unwrap();
+    }
+}
 
 pub fn handle_keyboard_input(
     mut keyboard_input: ResMut<Input<KeyCode>>,

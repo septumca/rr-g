@@ -31,6 +31,7 @@ pub fn spawn_selected_helper(commands: &mut Commands, helper_materials: &Res<Hel
         .spawn_bundle(SpriteBundle {
             material: helper_materials.selection.clone(),
             sprite: Sprite::new(Vec2::new(34.0, 34.0)),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, -1.0)),
             ..Default::default()
         })
         .insert(SelectedHelper {});

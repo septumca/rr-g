@@ -11,3 +11,4 @@ pub mod physics;
 pub mod animation;
 pub mod team;
 pub mod arena;
+pub mod matchup;

@@ -5,6 +5,7 @@ use bevy_rapier2d::{
     rapier::{
         dynamics::{RigidBodySet, RigidBodyBuilder},
         geometry::{ColliderBuilder},
+        math::Isometry,
     }
 };
 
@@ -12,6 +13,7 @@ pub fn set_rb_properties(
     rigid_body_handle: &RigidBodyHandleComponent,
     rigid_body_set: &mut ResMut<RigidBodySet>,
     velocity: Option<Vec2>,
+    position: Option<Vec2>,
     linear_damping: Option<f32>,
 ) {
     if let Some(rigid_body) = rigid_body_set.get_mut(rigid_body_handle.handle()) {
@@ -20,6 +22,9 @@ pub fn set_rb_properties(
         }
         if let Some(ld) = linear_damping {
             rigid_body.linear_damping = ld;
+        }
+        if let Some(p) = position {
+            rigid_body.set_position(Isometry::translation(p.x, p.y), true);
         }
     }
 }

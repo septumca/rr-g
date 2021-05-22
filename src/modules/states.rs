@@ -2,4 +2,7 @@
 pub enum AppState {
     Plan,
     Play,
+    Introduction,
+    Scored,
+    MovingToStartPosition,
 }

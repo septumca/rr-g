@@ -127,7 +127,7 @@ pub fn spawn_actor(
     actor_sprites: &Res<ActorTextures>,
     position: Vec2,
     team: team::Team,
-) {
+) -> Entity {
     let (texture_atlas, is_left_side) = match team {
         team::Team::Home => (actor_sprites.blue.clone(), false),
         team::Team::Away => (actor_sprites.red.clone(), true),
@@ -159,6 +159,8 @@ pub fn spawn_actor(
         .insert(collision::ColliderType::Actor)
         .id();
     physics::create_physics_actor(commands, e, position);
+
+    e
 }
 
 pub fn reset_control_mode(
@@ -217,9 +219,9 @@ pub fn handle_actors_refresh_action(
             ActorAction::Running { x, y} | ActorAction::Tackling { x, y } => {
                 let d_x = transform.translation.x - x;
                 let d_y = transform.translation.y - y;
-                //when this value is too big (e.g. 10.0), then player get from tackle action too soon into idle
-                //and it can result into tackle->idle and then colliding with running player
-                //test with from running from -100.0, 100.0 to 132.0, 48.0 and tackling player standing at 100, 100
+                //when this value is too big (e.g. 10.0), then actor get from tackle action too soon into idle
+                //and it can result into tackle->idle and then colliding with running actor
+                //test with from running from -100.0, 100.0 to 132.0, 48.0 and tackling actor standing at 100, 100
                 d_x.abs() < 2.0 && d_y.abs() < 2.0
             },
             ActorAction::Throwing { x, y } => {
@@ -272,31 +274,31 @@ pub fn handle_actor_action_start(
         match actor.act_action {
             ActorAction::Lookout | ActorAction::Idle => {
                 animation.update_sprites_indexes(get_idle_indexes(ball_possession.0), true);
-                physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set,  Some(Vec2::ZERO), Some(0.0));
+                physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set,  Some(Vec2::ZERO), None, Some(0.0));
             },
             ActorAction::Tackling {x, y} => {
                 let delta = (Vec3::new(x, y, transform.translation.z) - transform.translation).normalize() * PLAYER_TACKLE_SPEED ;
                 sprite.flip_x = delta.x < 0.0;
                 animation.update_sprites_indexes(vec![10, 11, 12], false);
-                physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set, Some(Vec2::new(delta.x, delta.y)), Some(0.0));
+                physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set, Some(Vec2::new(delta.x, delta.y)), None, Some(0.0));
                 actor.has_tackled = true;
             }
             ActorAction::Running { x, y} => {
                 let delta = (Vec3::new(x, y, transform.translation.z) - transform.translation).normalize() * PLAYER_RUN_SPEED;
                 sprite.flip_x = delta.x < 0.0;
                 animation.update_sprites_indexes(get_running_indexes(ball_possession.0), true);
-                physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set, Some(Vec2::new(delta.x, delta.y)), Some(0.0));
+                physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set, Some(Vec2::new(delta.x, delta.y)), None, Some(0.0));
             },
             ActorAction::Throwing { x, y} => {
                 animation.update_sprites_indexes(vec![7, 8, 9], false);
                 let delta = (Vec3::new(x, y, transform.translation.z) - transform.translation).normalize();
                 sprite.flip_x = delta.x < 0.0;
-                physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set, None, Some(0.0));
+                physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set, None, None, Some(0.0));
             }
             ActorAction::Recovering(t) => {
                 animation.update_sprites_indexes(vec![6], true);
                 reset_action_timer(&mut timer, t);
-                physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set, None, Some(PLAYER_RECOVERY_LINEAR_DAMPING));
+                physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set, None, None, Some(PLAYER_RECOVERY_LINEAR_DAMPING));
             }
         };
     }
@@ -305,15 +307,15 @@ pub fn handle_actor_action_start(
 fn get_tackle_hit_position(target_position: Vec2, target_velocity: Vec2, origin_position: Vec2) -> Option<Vec2> {
     let mut last_magnitude = f32::INFINITY;
     let mut step = 0.2;
-    let player_speed_squared = PLAYER_TACKLE_SPEED.powi(2);
+    let actor_speed_squared = PLAYER_TACKLE_SPEED.powi(2);
 
     //P1 + V1*step = P2 + V2*step ---> iterate through steps, solve for V2
     loop {
         let tackle_velocity = (target_position - origin_position + (target_velocity*step))/step; //calculate needed velocity for time step
         let new_magnitude = tackle_velocity.length_squared();
         let hit_position = origin_position + (tackle_velocity*step);
-        //if it's possible for player to reach this velocity and if hit position is in tackle range then return it
-        if new_magnitude < player_speed_squared && (hit_position - origin_position).length_squared() < PLAYER_TACKLE_RADIUS.powi(2) {
+        //if it's possible for actor to reach this velocity and if hit position is in tackle range then return it
+        if new_magnitude < actor_speed_squared && (hit_position - origin_position).length_squared() < PLAYER_TACKLE_RADIUS.powi(2) {
             return Some(hit_position);
         }
         //if the new magnitude is higher, e.g. target is getting away and there is no chance to catch it + limit number of calculation to prevent infinite loops
@@ -325,7 +327,7 @@ fn get_tackle_hit_position(target_position: Vec2, target_velocity: Vec2, origin_
     }
 }
 
-pub fn handle_player_events(
+pub fn handle_actor_events(
     mut events: EventReader<ActorEvents>,
     mut ball_events: EventWriter<ball::BallEvent>,
     mut query: Query<(
@@ -371,7 +373,7 @@ pub fn handle_player_events(
                             other_ball_possession.0 = true;
                         },
                         _ => {
-                            let rb_vel = physics::get_velocity(rigid_body_handle, &mut rigid_body_set).expect("Cannot get velocity information from player");
+                            let rb_vel = physics::get_velocity(rigid_body_handle, &mut rigid_body_set).expect("Cannot get velocity information from actor");
                             ball_events.send(ball::BallEvent::Drop {
                                 entity: *actor_entity,
                                 position: Vec2::new(transform.translation.x, transform.translation.y),
@@ -382,7 +384,7 @@ pub fn handle_player_events(
                 }
             },
             ActorEvents::LookForTackle { entity, position, team } => {
-                let player_tackle_radius_squared = PLAYER_GUARD_RADIUS.powi(2);
+                let actor_tackle_radius_squared = PLAYER_GUARD_RADIUS.powi(2);
                 let mut hit_position = None;
                 for (
                     actor,
@@ -398,10 +400,10 @@ pub fn handle_player_events(
                         ActorAction::Running { x: _, y: _ } => false,
                         _ => true
                     };
-                    if team_target == team || (target_position - *position).length_squared() > player_tackle_radius_squared || is_in_nontacklable_state || is_tackle_target.0 {
+                    if team_target == team || (target_position - *position).length_squared() > actor_tackle_radius_squared || is_in_nontacklable_state || is_tackle_target.0 {
                         continue;
                     }
-                    let target_velocity = physics::get_velocity(rigid_body_handle, &mut rigid_body_set).expect("Cannot get velocity information from player");
+                    let target_velocity = physics::get_velocity(rigid_body_handle, &mut rigid_body_set).expect("Cannot get velocity information from actor");
                     hit_position = get_tackle_hit_position(target_position, target_velocity, *position);
                     if hit_position.is_some() {
                         is_tackle_target.0 = true;

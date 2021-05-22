@@ -5,13 +5,7 @@ use bevy_rapier2d::{
         dynamics::{RigidBodySet},
     }
 };
-use super::{
-    animation,
-    actor,
-    physics,
-    collision,
-    utils
-};
+use super::{actor, animation, collision, matchup, physics, team, utils};
 
 pub struct Ball {}
 pub struct BallThrown(Vec2);
@@ -36,6 +30,23 @@ pub fn setup_ball_material(
     let texture_handle = asset_server.load("ball.png");
     let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(8.0, 8.0), 4, 1);
     commands.insert_resource(BallTexture(texture_atlases.add(texture_atlas)));
+}
+
+pub fn add_ball_to_arena(
+    mut commands: Commands,
+    query_ball: Query<Entity, With<Ball>>,
+    ball_sprite: Res<BallTexture>,
+    matchup: Res<matchup::Matchup>
+) {
+    if let Ok(entity) = query_ball.single() {
+        commands.entity(entity).despawn_recursive();
+    }
+
+    let position = match matchup.serving_side {
+        team::Team::Home => matchup.ball_home_position,
+        team::Team::Away => matchup.ball_away_position
+    };
+    spawn_ball(&mut commands, &ball_sprite, position, Vec2::ZERO, None);
 }
 
 pub fn spawn_ball(
@@ -72,7 +83,7 @@ pub fn update_thrown_ball(
         let d_x = transform.translation.x - ball_thrown.0.x;
         let d_y = transform.translation.y - ball_thrown.0.y;
         if d_x.abs() < 10.0 && d_y.abs() < 10.0 {
-            physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set,  Some(Vec2::ZERO), None);
+            physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set,  None, None, Some(BALL_LINEAR_DAMPING_BOUNCED*5.0));
         }
     }
 }
@@ -119,7 +130,7 @@ pub fn handle_ball_events(
             },
             BallEvent::WallBounce { ball_entity } => {
                 if let Ok(rigid_body_handle) = query_ball.get(ball_entity) {
-                    physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set,  None, Some(BALL_LINEAR_DAMPING_BOUNCED));
+                    physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set,  None, None, Some(BALL_LINEAR_DAMPING_BOUNCED));
                 }
             }
         }

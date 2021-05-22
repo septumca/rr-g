@@ -9,15 +9,7 @@ use super::{
 
 pub struct ArenaWall {}
 pub struct GoalPost {
-    team: team::Team
-}
-impl GoalPost {
-    pub fn get_oposing_team(&self) -> team::Team {
-        match self.team {
-            team::Team::Away => team::Team::Home,
-            team::Team::Home => team::Team::Away,
-        }
-    }
+    pub team: team::Team
 }
 
 pub struct ArenaMaterials {

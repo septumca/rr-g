@@ -12,7 +12,8 @@ use bevy_rapier2d::{
 use super::{
     actor,
     arena,
-    ball
+    ball,
+    matchup,
 };
 
 pub enum RRCollisionEventTypes {
@@ -140,6 +141,7 @@ pub fn handle_collision_events(
     query: Query<&actor::Actor>,
     query_gp: Query<&arena::GoalPost>,
     mut events_actor: EventWriter<actor::ActorEvents>,
+    mut events_matchup: EventWriter<matchup::MatchupEvents>,
 ) {
     for event in events.iter() {
         let (e1, e1_type) = event.a;
@@ -187,16 +189,16 @@ pub fn handle_collision_events(
         }
 
         //TODO: explicitly create handler for intersection events and handle it there?
-        let collision_result = match_entity_pair_to_colliders(e1, e1_type, e2, e2_type, ColliderType::Ball, ColliderType::GoalPost);
-        if let Some((_ball_entity, gp_entity)) = collision_result {
-            let oposing_team = query_gp.get(gp_entity).unwrap().get_oposing_team();
-            println!("{:?} team scores!", oposing_team);
-            continue;
-        }
-
         let collision_result = match_entity_pair_to_colliders(e1, e1_type, e2, e2_type, ColliderType::Ball, ColliderType::Wall);
         if let Some((ball_entity, _wall_entity)) = collision_result {
             events_ball.send(ball::BallEvent::WallBounce { ball_entity });
+            continue;
+        }
+
+        let collision_result = match_entity_pair_to_colliders(e1, e1_type, e2, e2_type, ColliderType::Ball, ColliderType::GoalPost);
+        if let Some((_ball_entity, gp_entity)) = collision_result {
+            let team_scored_against= query_gp.get(gp_entity).unwrap().team;
+            events_matchup.send(matchup::MatchupEvents::Scored(team_scored_against, 1));
             continue;
         }
     }
