@@ -1,8 +1,13 @@
 use bevy::prelude::*;
-use bevy_rapier2d::{physics::{RapierConfiguration, RapierPhysicsPlugin}, rapier::{math::Vector}};
+use bevy_rapier2d::{
+    physics::{RapierConfiguration, RapierPhysicsPlugin},
+    rapier::{math::Vector},
+    // render::RapierRenderPlugin,
+};
 
 mod modules;
 use modules::{
+    arena,
     ui,
     ball,
     actor,
@@ -32,6 +37,7 @@ fn setup(
     actor::setup_actor_sprites(&mut commands, &asset_server, &mut texture_atlases);
     ui::setup_ui_materials(&mut commands, &asset_server);
     ball::setup_ball_material(&mut commands, &asset_server, &mut texture_atlases);
+    arena::setup_arena_materials(&mut commands, &mut materials);
     commands.insert_resource(actor::CurrentControlMode(actor::ControlMode::Run));
 }
 
@@ -39,17 +45,21 @@ fn initialize_game(
     mut commands: Commands,
     fonts: Res<ui::FontMaterials>,
     helper_materiarls: Res<helpers::HelperMaterials>,
+    arena_materials: Res<arena::ArenaMaterials>,
     ball_sprite: Res<ball::BallTexture>,
     actor_sprites: Res<actor::ActorTextures>,
 ) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
 
+    let ui_size = 20.0;
+
     ui::spawn_ui(&mut commands, &fonts);
     actor::spawn_actor(&mut commands, &actor_sprites, Vec2::new(100.0, 100.0), team::Team::Away);
     actor::spawn_actor(&mut commands, &actor_sprites, Vec2::new(100.0, -100.0), team::Team::Away);
     actor::spawn_actor(&mut commands, &actor_sprites, Vec2::new(-100.0, 100.0), team::Team::Home);
     actor::spawn_actor(&mut commands, &actor_sprites, Vec2::new(-100.0, -100.0), team::Team::Home);
+    arena::create_simple(&mut commands, &arena_materials, utils::WIN_W, utils::WIN_H - ui_size, 0.0, ui_size);
     ball::spawn_ball(&mut commands, &ball_sprite, Vec2::new(0.0, 0.0), Vec2::ZERO, None);
     helpers::spawn_selected_helper(&mut commands, &helper_materiarls);
 }
@@ -68,6 +78,7 @@ fn main() {
         .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1)))
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin)
+        // .add_plugin(RapierRenderPlugin)
         .add_event::<collision::RRCollisionEvent>()
         .add_event::<ball::BallEvent>()
         .add_event::<actor::ActorEvents>()

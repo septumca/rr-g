@@ -1,7 +1,5 @@
 use bevy::prelude::*;
-use super::{
-    actor,
-};
+use super::{actor, utils};
 
 
 const LINE_THICKNESS: f32 = 2.0;
@@ -71,7 +69,7 @@ pub fn spawn_movement_helper(
     commands
         .spawn_bundle(SpriteBundle {
             material: helper_materials.movement_target.clone(),
-            sprite: Sprite::new(Vec2::new(32.0, 32.0)),
+            sprite: Sprite::new(Vec2::new(utils::SPRITE_SIZE, utils::SPRITE_SIZE)),
             transform: Transform::from_translation(Vec3::new(to.x, to.y, 0.3)),
             ..Default::default()
         })

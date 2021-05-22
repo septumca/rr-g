@@ -13,6 +13,7 @@ use super::{
     ball,
     helpers,
     team,
+    utils,
 };
 
 const PLAYER_RUN_SPEED: f32 = 100.0;
@@ -108,10 +109,10 @@ pub fn setup_actor_sprites(
     texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
 ) {
     let texture_handle = asset_server.load("players-red.png");
-    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(48.0, 48.0), 13, 1);
+    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(utils::ACTOR_SPRITE_SIZE_W_PADDING, utils::ACTOR_SPRITE_SIZE_W_PADDING), 13, 1);
     let texture_atlas_handle_red = texture_atlases.add(texture_atlas);
     let texture_handle = asset_server.load("players-blue.png");
-    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(48.0, 48.0), 13, 1);
+    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(utils::ACTOR_SPRITE_SIZE_W_PADDING, utils::ACTOR_SPRITE_SIZE_W_PADDING), 13, 1);
     let texture_atlas_handle_blue = texture_atlases.add(texture_atlas);
 
     commands.insert_resource(ActorTextures{

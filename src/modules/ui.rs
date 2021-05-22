@@ -15,6 +15,8 @@ pub struct FontMaterials {
 }
 
 const TEXT_SIZE: f32 = 10.0;
+const DEBUG_OFF_SET_X: f32 = 20.0;
+const DEBUG_OFF_SET_Y: f32 = 40.0;
 
 fn update_text(text: &mut Text, value: String) {
     text.sections[0].value = value;
@@ -32,8 +34,8 @@ fn create_debug_text_bundle(fonts: &Res<FontMaterials>, text: String, y: f32) ->
             align_self: AlignSelf::FlexStart,
             position_type: PositionType::Absolute,
             position: Rect {
-                top: Val::Px(y),
-                left: Val::Px(5.0),
+                top: Val::Px(DEBUG_OFF_SET_Y + y),
+                left: Val::Px(DEBUG_OFF_SET_X + 5.0),
                 ..Default::default()
             },
             ..Default::default()
@@ -72,8 +74,9 @@ fn control_mode_changed(
     mut query_text: Query<&mut Text, With<ControlModeText>>
 ) {
     if control_mode.is_changed() {
-        let mut text = query_text.single_mut().expect("Cannot access Diagnostic Text");
-        update_text(&mut text, format!("Control mode: {:?}", control_mode.0));
+        if let Ok(mut text) = query_text.single_mut() {
+            update_text(&mut text, format!("Control mode: {:?}", control_mode.0));
+        }
     }
 }
 
@@ -82,8 +85,9 @@ fn state_changed(
     mut query_text: Query<&mut Text, With<StateText>>
 ) {
     if app_state.is_changed() {
-        let mut text = query_text.single_mut().expect("Cannot access Diagnostic Text");
-        update_text(&mut text, format!("State: {:?}", app_state.current()));
+        if let Ok(mut text) = query_text.single_mut() {
+            update_text(&mut text, format!("State: {:?}", app_state.current()));
+        }
     }
 }
 
@@ -98,8 +102,9 @@ fn selected_actor_changed(
     } else {
         format!("No actor selected")
     };
-    let mut text = query_text.single_mut().expect("Cannot access Diagnostic Text");
-    update_text(&mut text, msg);
+    if let Ok(mut text) = query_text.single_mut() {
+        update_text(&mut text, msg);
+    }
 }
 
 pub fn ui_changes_listeners() -> SystemSet {

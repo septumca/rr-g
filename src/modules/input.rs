@@ -32,7 +32,6 @@ pub fn handle_keyboard_input(
             };
         }
     }
-
 }
 
 pub fn handle_mouse_click(
@@ -77,7 +76,7 @@ pub fn handle_mouse_click(
     //get if some actor is clicked
     let mut clicked_entity = None;
     for (entity, transform) in query.q0().iter() {
-        if utils::is_point_in_rect(&click_pos, &transform.translation, 16.0) {
+        if utils::is_point_in_rect(&click_pos, &transform.translation, utils::TRUE_SPRITE_SIZE/2.0) {
             clicked_entity = Some(entity)
         }
     }

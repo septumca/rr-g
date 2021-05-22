@@ -89,3 +89,46 @@ pub fn create_physics_ball(
         .user_data(e.to_bits() as u128)
     );
 }
+
+pub fn create_physics_wall(
+    commands: &mut Commands,
+    e: Entity,
+    position: Vec2,
+    w: f32,
+    h: f32,
+) {
+    commands.entity(e).insert(
+    RigidBodyBuilder::new_static()
+        .translation(position.x, position.y)
+        .lock_rotations()
+    );
+    commands.entity(e).insert(
+    ColliderBuilder::cuboid(w/2.0, h/2.0)
+        .density(1.0)
+        .friction(0.7)
+        .restitution(0.1)
+        .user_data(e.to_bits() as u128)
+    );
+}
+
+pub fn create_physics_goalpost(
+    commands: &mut Commands,
+    e: Entity,
+    position: Vec2,
+    w: f32,
+    h: f32,
+) {
+    commands.entity(e).insert(
+    RigidBodyBuilder::new_static()
+        .translation(position.x, position.y)
+        .lock_rotations()
+    );
+    commands.entity(e).insert(
+    ColliderBuilder::cuboid(w/2.0, h/2.0)
+    .density(1.0)
+    .friction(0.7)
+    .restitution(0.1)
+        .sensor(true)
+        .user_data(e.to_bits() as u128)
+    );
+}

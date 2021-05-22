@@ -10,7 +10,9 @@ use super::{
     actor,
     physics,
     collision,
+    utils
 };
+
 pub struct Ball {}
 pub struct BallThrown(Vec2);
 
@@ -18,9 +20,13 @@ pub enum BallEvent {
     Pickup { actor_entity: Entity, ball_entity: Entity },
     Drop { entity: Entity, position: Vec2, velocity_vector: Vec2 },
     Throw { entity: Entity, position: Vec2, throw_target: Vec2 },
+    WallBounce { ball_entity: Entity },
 }
 
 pub struct BallTexture(Handle<TextureAtlas>);
+
+const BALL_LINEAR_DAMPING_DROPPED: f32 = 1.5;
+const BALL_LINEAR_DAMPING_BOUNCED: f32 = 0.5;
 
 pub fn setup_ball_material(
     commands: &mut Commands,
@@ -39,7 +45,7 @@ pub fn spawn_ball(
     velocity_vector: Vec2,
     throw_target: Option<Vec2>,
 ) {
-    let linear_damping = if throw_target.is_some() { 0.0 } else { 1.5 };
+    let linear_damping = if throw_target.is_some() { 0.0 } else { BALL_LINEAR_DAMPING_DROPPED };
     let e = commands
         .spawn_bundle(SpriteSheetBundle {
             texture_atlas: ball_sprite.0.clone(),
@@ -75,7 +81,9 @@ pub fn handle_ball_events(
     mut commands: Commands,
     mut events: EventReader<BallEvent>,
     ball_sprite: Res<BallTexture>,
-    mut query_actor: Query<(&mut actor::Actor, &mut actor::BallPossession, &mut animation::Animation)>
+    mut query_actor: Query<(&mut actor::Actor, &mut actor::BallPossession, &mut animation::Animation)>,
+    query_ball: Query<&RigidBodyHandleComponent, With<Ball>>,
+    mut rigid_body_set: ResMut<RigidBodySet>,
 ) {
     for event in events.iter() {
         match *event {
@@ -85,8 +93,8 @@ pub fn handle_ball_events(
                 }
                 let norm_vel = velocity_vector.normalize();
                 let ball_position = Vec2::new(
-                    position.x + norm_vel.x*16.0,
-                    position.y + norm_vel.y*16.0,
+                    position.x + norm_vel.x*(utils::TRUE_SPRITE_SIZE/2.0),
+                    position.y + norm_vel.y*(utils::TRUE_SPRITE_SIZE/2.0),
                 );
                 let ball_velocity = Vec2::new(velocity_vector.x, velocity_vector.y) * 1.5;
                 spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, None);
@@ -97,8 +105,8 @@ pub fn handle_ball_events(
                 }
                 let delta = (throw_target - position).normalize();
                 let ball_position = Vec2::new(
-                    position.x + delta.x*32.0,
-                    position.y + delta.y*32.0,
+                    position.x + delta.x*utils::TRUE_SPRITE_SIZE,
+                    position.y + delta.y*utils::TRUE_SPRITE_SIZE,
                 );
                 let ball_velocity = Vec2::new(delta.x, delta.y) * 300.0; //TODO: replace with throw power
                 spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, Some(throw_target));
@@ -108,6 +116,11 @@ pub fn handle_ball_events(
                     actor::change_ball_possession(&mut actor, &mut animation, &mut ball_possession, true);
                 }
                 commands.entity(ball_entity).despawn();
+            },
+            BallEvent::WallBounce { ball_entity } => {
+                if let Ok(rigid_body_handle) = query_ball.get(ball_entity) {
+                    physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set,  None, Some(BALL_LINEAR_DAMPING_BOUNCED));
+                }
             }
         }
     }

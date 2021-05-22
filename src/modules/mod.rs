@@ -10,3 +10,4 @@ pub mod collision;
 pub mod physics;
 pub mod animation;
 pub mod team;
+pub mod arena;
