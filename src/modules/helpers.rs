@@ -9,11 +9,17 @@ pub struct MovementHelper {
     pub actor: Entity
 }
 
+pub enum HelperType {
+    Run,
+    Throw,
+}
+
 
 pub struct HelperMaterials {
     pub selection: Handle<ColorMaterial>,
     pub movement_target: Handle<ColorMaterial>,
     pub movement_line: Handle<ColorMaterial>,
+    pub throw_line: Handle<ColorMaterial>,
     pub tackle_zone: Handle<ColorMaterial>,
 }
 
@@ -22,6 +28,7 @@ pub fn setup_helper_materials(commands: &mut Commands, asset_server: &Res<AssetS
         selection: materials.add(asset_server.load("selectbox.png").into()),
         movement_target: materials.add(asset_server.load("targetpos.png").into()),
         movement_line: materials.add(Color::rgb(0.67, 0.2, 0.2).into()),
+        throw_line: materials.add(Color::rgb(0.8, 0.65, 0.1).into()),
         tackle_zone: materials.add(asset_server.load("tacklezone.png").into()),
     });
 }
@@ -64,8 +71,13 @@ pub fn spawn_movement_helper(
     helper_materials: &Res<HelperMaterials>,
     to: Vec2,
     from: Vec2,
-    actor: Entity
+    actor: Entity,
+    htype: HelperType,
 ) {
+    let material = match htype {
+        HelperType::Run => helper_materials.movement_line.clone(),
+        HelperType::Throw => helper_materials.throw_line.clone(),
+    };
     let line_data = calculate_line(Vec2::ZERO, from - to);
     commands
         .spawn_bundle(SpriteBundle {
@@ -80,7 +92,7 @@ pub fn spawn_movement_helper(
         .with_children(|parent| {
             parent.
                 spawn_bundle(SpriteBundle {
-                    material: helper_materials.movement_line.clone(),
+                    material,
                     sprite: Sprite::new(Vec2::new(line_data.0, LINE_THICKNESS)),
                     transform: Transform {
                         translation: line_data.1.0,

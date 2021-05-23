@@ -126,9 +126,9 @@ pub fn handle_mouse_click(
 
     //if not set target position
     for (selected, transform, mut actor) in query.q1_mut().iter_mut() {
-        let action = match control_mode.0 {
-            actor::ControlMode::Run => actor::ActorAction::Running { x: click_pos.x, y: click_pos.y },
-            actor::ControlMode::Throw => actor::ActorAction::Throwing { x: click_pos.x, y: click_pos.y },
+        let (action, htype) = match control_mode.0 {
+            actor::ControlMode::Run => (actor::ActorAction::Running { x: click_pos.x, y: click_pos.y }, helpers::HelperType::Run),
+            actor::ControlMode::Throw => (actor::ActorAction::Throwing { x: click_pos.x, y: click_pos.y }, helpers::HelperType::Throw),
         };
         match actor.act_action {
             actor::ActorAction::Recovering(_) => {
@@ -150,7 +150,8 @@ pub fn handle_mouse_click(
             &helper_materials,
             Vec2::new(click_pos.x, click_pos.y),
             Vec2::new(transform.translation.x, transform.translation.y),
-            selected.clone()
+            selected.clone(),
+            htype
         );
     }
 }
