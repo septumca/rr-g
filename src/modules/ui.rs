@@ -71,7 +71,7 @@ fn create_text_bundle(fonts: &Res<FontMaterials>, text: String, x: f32, y: f32, 
     }
 }
 
-pub fn spawn_ui(commands: &mut Commands, fonts: &Res<FontMaterials>) {
+pub fn spawn_debug_ui(mut commands: Commands, fonts: Res<FontMaterials>) {
     commands
         .spawn_bundle(create_debug_text_bundle(&fonts, "No entity".to_string(), 5.0))
         .insert(SelectedText);
@@ -92,7 +92,7 @@ pub fn spawn_score_text(
     let bundle = create_text_bundle(&fonts, text.clone(), utils::WIN_W - (text.len() as f32)*10.0, 2.0, 16.0, AlignSelf::FlexStart);
     commands
         .spawn_bundle(bundle)
-        .insert(GameText);
+        .insert(ScoreText);
 }
 
 pub fn add_pre_game_text(

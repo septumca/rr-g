@@ -26,7 +26,7 @@ pub fn setup_helper_materials(commands: &mut Commands, asset_server: &Res<AssetS
     });
 }
 
-pub fn spawn_selected_helper(commands: &mut Commands, helper_materials: &Res<HelperMaterials>) {
+pub fn spawn_selected_helper(mut commands: Commands, helper_materials: Res<HelperMaterials>) {
     commands
         .spawn_bundle(SpriteBundle {
             material: helper_materials.selection.clone(),

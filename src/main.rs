@@ -30,8 +30,6 @@ fn setup(
 
 fn initialize_game(
     mut commands: Commands,
-    fonts: Res<ui::FontMaterials>,
-    helper_materiarls: Res<helpers::HelperMaterials>,
     arena_materials: Res<arena::ArenaMaterials>,
     actor_sprites: Res<actor::ActorTextures>,
     mut matchup_res: ResMut<matchup::Matchup>,
@@ -40,8 +38,6 @@ fn initialize_game(
     commands.spawn_bundle(UiCameraBundle::default());
 
     let ui_size = 20.0;
-
-    ui::spawn_ui(&mut commands, &fonts);
 
     let actors: Vec<(Entity, Vec2, team::Team)> = vec![
         (Vec2::new(-150.0, 100.0), Vec2::new(-150.0, 0.0),  team::Team::Home),
@@ -60,7 +56,6 @@ fn initialize_game(
 
     matchup_res.add_actors(actors);
     arena::create_simple(&mut commands, &arena_materials, utils::WIN_W, utils::WIN_H - ui_size, 0.0, ui_size);
-    helpers::spawn_selected_helper(&mut commands, &helper_materiarls);
 }
 
 fn main() {
@@ -90,6 +85,8 @@ fn main() {
             SystemSet::on_enter(states::AppState::Introduction)
                 .with_system(ui::spawn_score_text.system())
                 .with_system(ui::add_pre_game_text.system())
+                .with_system(ui::spawn_debug_ui.system())
+                .with_system(helpers::spawn_selected_helper.system())
         )
         .add_system_set(
             SystemSet::on_update(states::AppState::Introduction)
