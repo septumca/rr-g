@@ -1,17 +1,13 @@
 use bevy::prelude::*;
-use super::{
-    actor,
-    helpers,
-    states,
-    utils
-};
+use super::{actor, helpers, states, ui, utils};
 
 pub fn handle_keyboard_input_pre_round(
-    keyboard_input: ResMut<Input<KeyCode>>,
+    mut keyboard_input: ResMut<Input<KeyCode>>,
     mut app_state: ResMut<State<states::AppState>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Return) {
         app_state.set(states::AppState::MovingToStartPosition).unwrap();
+        keyboard_input.reset(KeyCode::Return); //according to https://bevy-cheatbook.github.io/programming/states.html#with-input
     }
 }
 
@@ -46,14 +42,16 @@ pub fn handle_keyboard_input(
 pub fn handle_mouse_click(
     mut commands: Commands,
     mut query:  QuerySet<(
-        Query<(Entity, &Transform), (With<actor::Actor>, Without<actor::Selected>)>,
+        Query<(Entity, &Transform, &actor::BallPossession), (With<actor::Actor>, Without<actor::Selected>)>,
         Query<(Entity, &Transform, &mut actor::Actor), With<actor::Selected>>,
     )>,
     query_movement_helper: Query<(Entity, &helpers::MovementHelper)>,
     mut control_mode: ResMut<actor::CurrentControlMode>,
     helper_materials: Res<helpers::HelperMaterials>,
     mouse_input: Res<Input<MouseButton>>,
-    windows: Res<Windows>
+    windows: Res<Windows>,
+    query_buttons: Query<(Entity, &ui::ButtonAction, &ui::ButtonGroup), With<ui::RRButton>>,
+    mut event_buttons: EventWriter<ui::ButtonEvent>,
 ) {
     let mouse_left_pressed = mouse_input.just_pressed(MouseButton::Left);
     let mouse_right_pressed = mouse_input.just_pressed(MouseButton::Right);
@@ -82,11 +80,18 @@ pub fn handle_mouse_click(
     }
     let click_pos = click_pos.unwrap();
 
+    //if click is inside UI then return
+    if click_pos.y >= utils::WIN_H/2.0 - ui::UI_SIZE {
+        return;
+    }
+
     //get if some actor is clicked
     let mut clicked_entity = None;
-    for (entity, transform) in query.q0().iter() {
-        if utils::is_point_in_rect(&click_pos, &transform.translation, utils::TRUE_SPRITE_SIZE/2.0) {
-            clicked_entity = Some(entity)
+    let mut has_ball = false;
+    for (entity, transform, ball_possession) in query.q0().iter() {
+        if utils::is_point_in_square(&click_pos, &transform.translation, utils::TRUE_SPRITE_SIZE/2.0) {
+            clicked_entity = Some(entity);
+            has_ball = ball_possession.0;
         }
     }
 
@@ -98,6 +103,24 @@ pub fn handle_mouse_click(
         let clicked_entity = clicked_entity.unwrap();
         commands.entity(clicked_entity).insert(actor::Selected {});
         control_mode.0 = actor::ControlMode::Run;
+
+        if has_ball {
+            for (entity, button_action, button_group) in query_buttons.iter() {
+                match *button_action {
+                    ui::ButtonAction::Run => {
+                        event_buttons.send(ui::ButtonEvent::ButtonGroupMemberClicked {
+                            source: entity,
+                            group: button_group.0
+                        });
+                    },
+                    _ => ()
+                };
+            }
+        } else {
+            let entities: Vec<Entity> = query_buttons.iter().map(|(entity, _button_action, _button_group)| { entity.clone() }).collect();
+            event_buttons.send(ui::ButtonEvent::DisableButtons { entities });
+        }
+
         return;
     }
 

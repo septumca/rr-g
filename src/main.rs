@@ -21,7 +21,7 @@ fn setup(
 
     helpers::setup_helper_materials(&mut commands, &asset_server, &mut materials);
     actor::setup_actor_sprites(&mut commands, &asset_server, &mut texture_atlases);
-    ui::setup_ui_materials(&mut commands, &asset_server);
+    ui::setup_ui_materials(&mut commands, &asset_server, &mut materials);
     ball::setup_ball_material(&mut commands, &asset_server, &mut texture_atlases);
     arena::setup_arena_materials(&mut commands, &mut materials);
     commands.insert_resource(actor::CurrentControlMode(actor::ControlMode::Run));
@@ -36,8 +36,6 @@ fn initialize_game(
 ) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
-
-    let ui_size = 20.0;
 
     let actors: Vec<(Entity, Vec2, team::Team)> = vec![
         (Vec2::new(-150.0, 100.0), Vec2::new(-150.0, 0.0),  team::Team::Home),
@@ -55,7 +53,7 @@ fn initialize_game(
     }).collect();
 
     matchup_res.add_actors(actors);
-    arena::create_simple(&mut commands, &arena_materials, utils::WIN_W, utils::WIN_H - ui_size, 0.0, ui_size);
+    arena::create_simple(&mut commands, &arena_materials, utils::WIN_W, utils::WIN_H - ui::UI_SIZE, 0.0, ui::UI_SIZE);
 }
 
 fn main() {
@@ -77,16 +75,23 @@ fn main() {
         .add_event::<ball::BallEvent>()
         .add_event::<actor::ActorEvents>()
         .add_event::<matchup::MatchupEvents>()
+        .add_event::<ui::ButtonEvent>()
         .add_startup_system(setup.system())
         .add_startup_stage("game_initialization", SystemStage::single(initialize_game.system()))
         .add_system_set(ui::ui_changes_listeners())
         .add_system(animation::animate_sprite.system())
+        .add_system(ui::button_state_changed.system())
+        .add_system(ui::button_interactions.system())
+        .add_system(ui::handle_button_events.system())
         .add_system_set(
             SystemSet::on_enter(states::AppState::Introduction)
                 .with_system(ui::spawn_score_text.system())
                 .with_system(ui::add_pre_game_text.system())
                 .with_system(ui::spawn_debug_ui.system())
                 .with_system(helpers::spawn_selected_helper.system())
+                .with_system(ui::spawn_buttons.system()
+                    .label("spawn_buttons")
+                )
         )
         .add_system_set(
             SystemSet::on_update(states::AppState::Introduction)
@@ -136,6 +141,7 @@ fn main() {
             SystemSet::on_enter(states::AppState::Plan)
                 .with_system(helpers::cleanup_movement_helpers.system())
                 .with_system(physics::pause_physics.system())
+                .with_system(ui::enable_buttons.system())
         )
         .add_system_set(
             SystemSet::on_update(states::AppState::Plan)
@@ -146,6 +152,7 @@ fn main() {
         .add_system_set(
             SystemSet::on_exit(states::AppState::Plan)
                 .with_system(helpers::deselect_all.system())
+                .with_system(ui::disable_buttons.system())
         )
         .add_system_set(
             SystemSet::on_enter(states::AppState::Play)
