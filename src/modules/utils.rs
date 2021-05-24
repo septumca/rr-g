@@ -1,5 +1,9 @@
 use bevy::prelude::*;
 
+use super::{
+    round,
+};
+
 pub const WIN_W: f32 = 800.0;
 pub const WIN_H: f32 = 600.0;
 pub const SPRITE_SIZE: f32 = 32.0;
@@ -17,4 +21,9 @@ pub fn is_point_in_square(point: &bevy::prelude::Vec2, rect_origin: &bevy::prelu
         point.x < (rect_origin.x + rect_half_size) &&
         point.y > (rect_origin.y - rect_half_size) &&
         point.y < (rect_origin.y + rect_half_size)
+}
+
+#[allow(dead_code)]
+fn get_max_distance_per_round(speed: f32) -> f32 {
+    speed * round::ROUND_TIME * 0.25
 }

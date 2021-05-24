@@ -7,6 +7,11 @@ use super::{
     utils,
 };
 
+
+pub struct Arena {
+    pub width: f32,
+    pub height: f32,
+}
 pub struct ArenaWall {}
 pub struct GoalPost {
     pub team: team::Team
@@ -88,6 +93,8 @@ pub fn create_simple(
     let right = left + w - wall_thickness;
     let bottom = top - h + wall_thickness;
     let vertical_section_size = (utils::WIN_H - offset_y - 2.0*wall_thickness - goal_post_size) / 2.0;
+
+    commands.insert_resource(Arena { width: w, height: h });
 
     spawn_wall(commands, arena_materials, left, top, utils::WIN_W, wall_thickness); // top horizontal secion
     spawn_wall(commands, arena_materials, left, bottom, utils::WIN_W, wall_thickness); // bottom horizontal secion

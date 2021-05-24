@@ -53,6 +53,7 @@ pub enum ActorAction {
     Tackling { x: f32, y: f32 },
     Recovering(f32)
 }
+#[derive(Debug)]
 pub struct Actor {
     pub act_action: ActorAction,
     queued_action: Option<ActorAction>,

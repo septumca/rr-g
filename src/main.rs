@@ -26,7 +26,7 @@ fn setup(
     arena::setup_arena_materials(&mut commands, &mut materials);
     commands.insert_resource(actor::CurrentControlMode(actor::ControlMode::Run));
     commands.insert_resource(ball::BallPossession::new());
-    commands.insert_resource(matchup::Matchup::new(Vec2::new(-10.0, 0.0), Vec2::new(100.0, 0.0)));
+    commands.insert_resource(matchup::Matchup::new(Vec2::new(-100.0, 0.0), Vec2::new(100.0, 0.0)));
 }
 
 fn initialize_game(
@@ -39,11 +39,13 @@ fn initialize_game(
     commands.spawn_bundle(UiCameraBundle::default());
 
     let actors: Vec<(Entity, Vec2, team::Team)> = vec![
-        (Vec2::new(-150.0, 100.0), Vec2::new(-150.0, 0.0),  team::Team::Home),
-        (Vec2::new(-100.0, 100.0), Vec2::new(-100.0, -150.0),  team::Team::Home),
+        (Vec2::new(-200.0, 100.0), Vec2::new(-100.0, -150.0),  team::Team::Home),
+        (Vec2::new(-100.0, 100.0), Vec2::new(-150.0, -50.0),  team::Team::Home),
+        (Vec2::new(-150.0, 100.0), Vec2::new(-150.0, 50.0),  team::Team::Home),
         (Vec2::new(-50.0, 100.0), Vec2::new(-100.0, 150.0),  team::Team::Home),
-        (Vec2::new(150.0, 100.0), Vec2::new(150.0, 0.0),  team::Team::Away),
-        (Vec2::new(100.0, 100.0), Vec2::new(100.0, -150.0),  team::Team::Away),
+        (Vec2::new(200.0, 100.0), Vec2::new(100.0, -150.0),  team::Team::Away),
+        (Vec2::new(150.0, 100.0), Vec2::new(150.0, -50.0),  team::Team::Away),
+        (Vec2::new(100.0, 100.0), Vec2::new(150.0, 50.0),  team::Team::Away),
         (Vec2::new(50.0, 100.0), Vec2::new(100.0, 150.0),  team::Team::Away),
     ].iter().map(|(initial_position, target_position, team)| -> (Entity, Vec2, team::Team) {
         (
@@ -206,6 +208,7 @@ fn main() {
                 .with_system(actor::handle_actor_action_start.system()
                     .after("after_round_reset")
                 )
+                .with_system(ai::reset_ai_roles.system())
         )
         .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();

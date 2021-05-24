@@ -21,6 +21,7 @@ pub fn handle_keyboard_input(
     if keyboard_input.just_pressed(KeyCode::Space) {
         app_state.set(states::AppState::Play).unwrap();
         keyboard_input.reset(KeyCode::Space); //according to https://bevy-cheatbook.github.io/programming/states.html#with-input
+        return;
     }
     if let Ok(entity) = query.single() {
         let has_ball = ball_possession.has_actor_ball(entity);
@@ -37,6 +38,7 @@ pub fn handle_keyboard_input(
                     }
                 }
             };
+            return;
         }
     }
 }

@@ -62,11 +62,13 @@ pub fn setup_ball_material(
     commands.insert_resource(BallTexture(texture_atlases.add(texture_atlas)));
 }
 
+
 pub fn add_ball_to_arena(
     mut commands: Commands,
     query_ball: Query<Entity, With<Ball>>,
     ball_sprite: Res<BallTexture>,
-    matchup: Res<matchup::Matchup>
+    matchup: Res<matchup::Matchup>,
+    mut ball_possession: ResMut<BallPossession>,
 ) {
     if let Ok(entity) = query_ball.single() {
         commands.entity(entity).despawn_recursive();
@@ -76,6 +78,7 @@ pub fn add_ball_to_arena(
         team::Team::Home => matchup.ball_home_position,
         team::Team::Away => matchup.ball_away_position
     };
+    ball_possession.clear();
     spawn_ball(&mut commands, &ball_sprite, position, Vec2::ZERO, None);
 }
 

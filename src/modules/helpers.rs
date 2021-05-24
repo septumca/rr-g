@@ -8,12 +8,10 @@ pub struct SelectedHelper {}
 pub struct MovementHelper {
     pub actor: Entity
 }
-
 pub enum HelperType {
     Run,
     Throw,
 }
-
 
 pub struct HelperMaterials {
     pub selection: Handle<ColorMaterial>,
@@ -73,7 +71,7 @@ pub fn spawn_movement_helper(
     from: Vec2,
     actor: Entity,
     htype: HelperType,
-) {
+) -> Entity {
     let material = match htype {
         HelperType::Run => helper_materials.movement_line.clone(),
         HelperType::Throw => helper_materials.throw_line.clone(),
@@ -101,7 +99,8 @@ pub fn spawn_movement_helper(
                     },
                     ..Default::default()
                 });
-        });
+        })
+        .id()
 }
 
 pub fn update_selected_helper(
