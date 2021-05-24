@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use super::{actor, helpers, states, ui, utils};
+use super::{actor, ai, ball, helpers, states, ui, utils};
 
 pub fn handle_keyboard_input_pre_round(
     mut keyboard_input: ResMut<Input<KeyCode>>,
@@ -15,14 +15,16 @@ pub fn handle_keyboard_input(
     mut keyboard_input: ResMut<Input<KeyCode>>,
     mut app_state: ResMut<State<states::AppState>>,
     mut control_mode: ResMut<actor::CurrentControlMode>,
-    query: Query<&actor::BallPossession, With<actor::Selected>>
+    ball_possession: Res<ball::BallPossession>,
+    query: Query<Entity, With<actor::Selected>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         app_state.set(states::AppState::Play).unwrap();
         keyboard_input.reset(KeyCode::Space); //according to https://bevy-cheatbook.github.io/programming/states.html#with-input
     }
-    if let Ok(ball_possession) = query.single() {
-        if keyboard_input.just_pressed(KeyCode::Return) && ball_possession.0 {
+    if let Ok(entity) = query.single() {
+        let has_ball = ball_possession.has_actor_ball(entity);
+        if keyboard_input.just_pressed(KeyCode::Return) && has_ball {
             control_mode.0 = match control_mode.0 {
                 actor::ControlMode::Throw => {
                     actor::ControlMode::Run
@@ -42,8 +44,8 @@ pub fn handle_keyboard_input(
 pub fn handle_mouse_click(
     mut commands: Commands,
     mut query:  QuerySet<(
-        Query<(Entity, &Transform, &actor::BallPossession), (With<actor::Actor>, Without<actor::Selected>)>,
-        Query<(Entity, &Transform, &mut actor::Actor), With<actor::Selected>>,
+        Query<(Entity, &Transform), (With<actor::Actor>, With<ai::PlayerControlled>, Without<actor::Selected>)>,
+        Query<(Entity, &Transform, &mut actor::Actor), (With<actor::Selected>, With<ai::PlayerControlled>)>,
     )>,
     query_movement_helper: Query<(Entity, &helpers::MovementHelper)>,
     mut control_mode: ResMut<actor::CurrentControlMode>,
@@ -52,6 +54,7 @@ pub fn handle_mouse_click(
     windows: Res<Windows>,
     query_buttons: Query<(Entity, &ui::ButtonAction, &ui::ButtonGroup), With<ui::RRButton>>,
     mut event_buttons: EventWriter<ui::ButtonEvent>,
+    ball_possession: Res<ball::BallPossession>,
 ) {
     let mouse_left_pressed = mouse_input.just_pressed(MouseButton::Left);
     let mouse_right_pressed = mouse_input.just_pressed(MouseButton::Right);
@@ -88,10 +91,10 @@ pub fn handle_mouse_click(
     //get if some actor is clicked
     let mut clicked_entity = None;
     let mut has_ball = false;
-    for (entity, transform, ball_possession) in query.q0().iter() {
+    for (entity, transform) in query.q0().iter() {
         if utils::is_point_in_square(&click_pos, &transform.translation, utils::TRUE_SPRITE_SIZE/2.0) {
             clicked_entity = Some(entity);
-            has_ball = ball_possession.0;
+            has_ball = ball_possession.has_actor_ball(entity);
         }
     }
 

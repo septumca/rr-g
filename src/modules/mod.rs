@@ -12,3 +12,4 @@ pub mod animation;
 pub mod team;
 pub mod arena;
 pub mod matchup;
+pub mod ai;

@@ -6,7 +6,7 @@ use bevy_rapier2d::{
 };
 
 mod modules;
-use modules::{actor, animation, arena, ball, collision, helpers, input, matchup, physics, round, states, team, ui, utils};
+use modules::{actor, ai, animation, arena, ball, collision, helpers, input, matchup, physics, round, states, team, ui, utils};
 
 
 fn setup(
@@ -25,7 +25,8 @@ fn setup(
     ball::setup_ball_material(&mut commands, &asset_server, &mut texture_atlases);
     arena::setup_arena_materials(&mut commands, &mut materials);
     commands.insert_resource(actor::CurrentControlMode(actor::ControlMode::Run));
-    commands.insert_resource(matchup::Matchup::new(Vec2::new(-100.0, 0.0), Vec2::new(100.0, 0.0)));
+    commands.insert_resource(ball::BallPossession::new());
+    commands.insert_resource(matchup::Matchup::new(Vec2::new(-10.0, 0.0), Vec2::new(100.0, 0.0)));
 }
 
 fn initialize_game(
@@ -39,14 +40,14 @@ fn initialize_game(
 
     let actors: Vec<(Entity, Vec2, team::Team)> = vec![
         (Vec2::new(-150.0, 100.0), Vec2::new(-150.0, 0.0),  team::Team::Home),
-        (Vec2::new(-100.0, 100.0), Vec2::new(-100.0, -100.0),  team::Team::Home),
-        (Vec2::new(-50.0, 100.0), Vec2::new(-100.0, 100.0),  team::Team::Home),
+        (Vec2::new(-100.0, 100.0), Vec2::new(-100.0, -150.0),  team::Team::Home),
+        (Vec2::new(-50.0, 100.0), Vec2::new(-100.0, 150.0),  team::Team::Home),
         (Vec2::new(150.0, 100.0), Vec2::new(150.0, 0.0),  team::Team::Away),
-        (Vec2::new(100.0, 100.0), Vec2::new(100.0, -100.0),  team::Team::Away),
-        (Vec2::new(50.0, 100.0), Vec2::new(100.0, 100.0),  team::Team::Away),
+        (Vec2::new(100.0, 100.0), Vec2::new(100.0, -150.0),  team::Team::Away),
+        (Vec2::new(50.0, 100.0), Vec2::new(100.0, 150.0),  team::Team::Away),
     ].iter().map(|(initial_position, target_position, team)| -> (Entity, Vec2, team::Team) {
         (
-            actor::spawn_actor(&mut commands, &actor_sprites, *initial_position, *team),
+            actor::spawn_actor(&mut commands, &actor_sprites, *initial_position, *team, *team == team::Team::Away),
             target_position.clone(),
             team.clone()
         )
@@ -142,6 +143,7 @@ fn main() {
                 .with_system(helpers::cleanup_movement_helpers.system())
                 .with_system(physics::pause_physics.system())
                 .with_system(ui::enable_buttons.system())
+                .with_system(ai::process_ai.system())
         )
         .add_system_set(
             SystemSet::on_update(states::AppState::Plan)

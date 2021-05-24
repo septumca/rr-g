@@ -10,6 +10,36 @@ use super::{actor, animation, collision, matchup, physics, team, utils};
 pub struct Ball {}
 pub struct BallThrown(Vec2);
 
+pub struct BallPossession {
+    actor: Option<Entity>,
+}
+impl BallPossession {
+    pub fn new() -> Self {
+        Self {
+            actor: None,
+        }
+    }
+    pub fn has_actor_ball(&self, actor: Entity) -> bool {
+        if let Some(a) = self.actor {
+            a == actor
+        } else {
+            false
+        }
+    }
+    pub fn get(&self) -> Option<Entity> {
+        self.actor
+    }
+    pub fn is_free(&self) -> bool {
+        self.actor.is_none()
+    }
+    pub fn set(&mut self, actor: Entity) {
+        self.actor = Some(actor);
+    }
+    pub fn clear(&mut self) {
+        self.actor = None;
+    }
+}
+
 pub enum BallEvent {
     Pickup { actor_entity: Entity, ball_entity: Entity },
     Drop { entity: Entity, position: Vec2, velocity_vector: Vec2 },
@@ -60,7 +90,7 @@ pub fn spawn_ball(
     let e = commands
         .spawn_bundle(SpriteSheetBundle {
             texture_atlas: ball_sprite.0.clone(),
-            transform: Transform::from_translation(Vec3::new(position.x, position.y, 2.0)),
+            transform: Transform::from_translation(Vec3::new(position.x, position.y, utils::PLAYING_FIELD_Z)),
             ..Default::default()
         })
         .insert(Ball {})
@@ -92,15 +122,17 @@ pub fn handle_ball_events(
     mut commands: Commands,
     mut events: EventReader<BallEvent>,
     ball_sprite: Res<BallTexture>,
-    mut query_actor: Query<(&mut actor::Actor, &mut actor::BallPossession, &mut animation::Animation)>,
+    mut query_actor: Query<(&mut actor::Actor, &mut animation::Animation)>,
     query_ball: Query<&RigidBodyHandleComponent, With<Ball>>,
     mut rigid_body_set: ResMut<RigidBodySet>,
+    mut ball_possession: ResMut<BallPossession>,
 ) {
     for event in events.iter() {
         match *event {
             BallEvent::Drop { entity, position, velocity_vector} => {
-                if let Ok((mut actor, mut ball_possession, mut animation)) = query_actor.get_mut(entity) {
-                    actor::change_ball_possession(&mut actor, &mut animation, &mut ball_possession, false);
+                if let Ok((mut actor, mut animation)) = query_actor.get_mut(entity) {
+                    actor::change_ball_possession(&mut actor, &mut animation, false);
+                    ball_possession.clear();
                 }
                 let norm_vel = velocity_vector.normalize();
                 let ball_position = Vec2::new(
@@ -111,8 +143,9 @@ pub fn handle_ball_events(
                 spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, None);
             },
             BallEvent::Throw { entity, position, throw_target} => {
-                if let Ok((mut actor, mut ball_possession, mut animation)) = query_actor.get_mut(entity) {
-                    actor::change_ball_possession(&mut actor, &mut animation, &mut ball_possession, false);
+                if let Ok((mut actor, mut animation)) = query_actor.get_mut(entity) {
+                    actor::change_ball_possession(&mut actor, &mut animation, false);
+                    ball_possession.clear();
                 }
                 let delta = (throw_target - position).normalize();
                 let ball_position = Vec2::new(
@@ -123,8 +156,9 @@ pub fn handle_ball_events(
                 spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, Some(throw_target));
             },
             BallEvent::Pickup { actor_entity, ball_entity} => {
-                if let Ok((mut actor, mut ball_possession, mut animation)) = query_actor.get_mut(actor_entity) {
-                    actor::change_ball_possession(&mut actor, &mut animation, &mut ball_possession, true);
+                if let Ok((mut actor, mut animation)) = query_actor.get_mut(actor_entity) {
+                    actor::change_ball_possession(&mut actor, &mut animation, true);
+                    ball_possession.set(actor_entity);
                 }
                 commands.entity(ball_entity).despawn();
             },

@@ -6,29 +6,22 @@ use bevy_rapier2d::{
         dynamics::{RigidBodySet},
     }
 };
-use super::{
-    animation,
-    physics,
-    collision,
-    ball,
-    helpers,
-    team,
-    utils,
-};
+use super::{animation, ai, ball, collision, helpers, physics, team, utils};
 
-const PLAYER_RUN_SPEED: f32 = 100.0;
+pub const PLAYER_RUN_SPEED: f32 = 100.0;
 const PLAYER_TACKLE_SPEED: f32 = 225.0;
-const PLAYER_GUARD_RADIUS: f32 = 60.0;
+pub const PLAYER_GUARD_RADIUS: f32 = 60.0;
 const PLAYER_TACKLE_RADIUS: f32 = 120.0;
 const PLAYER_RECOVERY_TIME_BUMPED: f32 = 0.3;
 const PLAYER_RECOVERY_TIME_TACKLED: f32 = 0.9;
 const PLAYER_RECOVERY_LINEAR_DAMPING: f32 = 1.5;
+
 pub struct ActorTextures {
     red: Handle<TextureAtlas>,
     blue: Handle<TextureAtlas>,
 }
 pub struct ActionTimer(Timer);
-pub struct BallPossession(pub bool);
+// pub struct BallPossession(pub bool);
 pub struct IsTackleTarget(pub bool);
 pub struct CurrentControlMode(pub ControlMode);
 #[derive(Debug)]
@@ -73,8 +66,8 @@ impl Actor {
             has_tackled: false,
         }
     }
-    pub fn trigger_queued_action(&mut self) {
-        self.act_action = self.queued_action.unwrap_or(if self.has_tackled { ActorAction::Idle } else { ActorAction::Lookout });
+    pub fn trigger_queued_action(&mut self, has_ball: bool) {
+        self.act_action = self.queued_action.unwrap_or(if self.has_tackled || has_ball { ActorAction::Idle } else { ActorAction::Lookout });
     }
     pub fn set_action(&mut self, action: ActorAction) {
         self.act_action = action;
@@ -127,6 +120,7 @@ pub fn spawn_actor(
     actor_sprites: &Res<ActorTextures>,
     position: Vec2,
     team: team::Team,
+    is_player_controlled: bool,
 ) -> Entity {
     let (texture_atlas, is_left_side) = match team {
         team::Team::Home => (actor_sprites.blue.clone(), false),
@@ -140,7 +134,7 @@ pub fn spawn_actor(
                 Vec3::new(
                     position.x,
                     position.y,
-                    1.0
+                    utils::PLAYING_FIELD_Z
                 )
             ),
             sprite: TextureAtlasSprite {
@@ -151,13 +145,19 @@ pub fn spawn_actor(
         })
         .insert(Actor::new())
         .insert(team)
-        .insert(BallPossession(false))
+        // .insert(BallPossession(false))
         .insert(IsTackleTarget(false))
         .insert(animation::Animation::new(vec![0]))
         .insert(animation::AnimationTimer(Timer::from_seconds(1.0/8.0, true)))
         .insert(ActionTimer(Timer::from_seconds(1.0, false)))
         .insert(collision::ColliderType::Actor)
         .id();
+
+    if is_player_controlled {
+        commands.entity(e).insert(ai::AiControlled::new());
+    } else {
+        commands.entity(e).insert(ai::PlayerControlled {});
+    }
     physics::create_physics_actor(commands, e, position);
 
     e
@@ -170,12 +170,14 @@ pub fn reset_control_mode(
 }
 
 pub fn after_round_reset(
-    mut query: Query<(&mut Actor, &mut IsTackleTarget, &BallPossession)>,
+    mut query: Query<(Entity, &mut Actor, &mut IsTackleTarget)>,
+    ball_possession: Res<ball::BallPossession>,
 ) {
-    for (mut actor, mut is_tackle_target, ball_possession) in query.iter_mut() {
+    for (entity, mut actor, mut is_tackle_target) in query.iter_mut() {
         match actor.act_action {
             ActorAction::Running { x: _, y: _ } | ActorAction::Tackling { x: _, y: _ } | ActorAction::Idle => {
-                actor.set_action(if ball_possession.0 { ActorAction::Idle } else { ActorAction::Lookout });
+                let has_ball = ball_possession.has_actor_ball(entity);
+                actor.set_action(if has_ball { ActorAction::Idle } else { ActorAction::Lookout });
             },
             _ => ()
         }
@@ -194,8 +196,9 @@ pub fn reset_action_timer(timer: &mut ActionTimer, t: f32) {
 pub fn handle_actors_refresh_action(
     time: Res<Time>,
     mut ball_events: EventWriter<ball::BallEvent>,
-    mut query: Query<(Entity, &team::Team, &mut Actor, &mut Transform, &mut ActionTimer, &animation::Animation, &mut BallPossession)>,
+    mut query: Query<(Entity, &team::Team, &mut Actor, &mut Transform, &mut ActionTimer, &animation::Animation)>,
     mut event_tackle_target: EventWriter<ActorEvents>,
+    ball_possession: Res<ball::BallPossession>,
 ) {
     for (
         entity,
@@ -204,8 +207,8 @@ pub fn handle_actors_refresh_action(
         transform,
         mut timer,
         animation,
-        ball_possession
     ) in query.iter_mut() {
+        let has_ball = ball_possession.has_actor_ball(entity);
         let is_action_finished = match actor.act_action {
             ActorAction::Lookout => {
                 event_tackle_target.send(ActorEvents::LookForTackle {
@@ -226,7 +229,7 @@ pub fn handle_actors_refresh_action(
             },
             ActorAction::Throwing { x, y } => {
                 if animation.finished {
-                    if ball_possession.0 {
+                    if has_ball {
                         ball_events.send(ball::BallEvent::Throw {
                             entity,
                             position: Vec2::new(transform.translation.x, transform.translation.y),
@@ -245,35 +248,37 @@ pub fn handle_actors_refresh_action(
         };
         if is_action_finished {
             reset_action_timer(&mut timer, 1.0);
-            actor.trigger_queued_action();
+            actor.trigger_queued_action(has_ball);
         }
     }
 }
 
 pub fn handle_actor_action_start(
     mut query: Query<(
+        Entity,
         &mut Actor,
         &Transform,
         &RigidBodyHandleComponent,
         &mut TextureAtlasSprite,
         &mut animation::Animation,
         &mut ActionTimer,
-        &BallPossession,
     ), Changed<Actor>>,
     mut rigid_body_set: ResMut<RigidBodySet>,
+    ball_possession: Res<ball::BallPossession>,
 ) {
     for (
+        entity,
         mut actor,
         transform,
         rigid_body_handle,
         mut sprite,
         mut animation,
         mut timer,
-        ball_possession
     ) in query.iter_mut() {
+        let has_ball = ball_possession.has_actor_ball(entity);
         match actor.act_action {
             ActorAction::Lookout | ActorAction::Idle => {
-                animation.update_sprites_indexes(get_idle_indexes(ball_possession.0), true);
+                animation.update_sprites_indexes(get_idle_indexes(has_ball), true);
                 physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set,  Some(Vec2::ZERO), None, Some(0.0));
             },
             ActorAction::Tackling {x, y} => {
@@ -286,7 +291,7 @@ pub fn handle_actor_action_start(
             ActorAction::Running { x, y} => {
                 let delta = (Vec3::new(x, y, transform.translation.z) - transform.translation).normalize() * PLAYER_RUN_SPEED;
                 sprite.flip_x = delta.x < 0.0;
-                animation.update_sprites_indexes(get_running_indexes(ball_possession.0), true);
+                animation.update_sprites_indexes(get_running_indexes(has_ball), true);
                 physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set, Some(Vec2::new(delta.x, delta.y)), None, Some(0.0));
             },
             ActorAction::Throwing { x, y} => {
@@ -334,11 +339,11 @@ pub fn handle_actor_events(
         &mut Actor,
         &team::Team,
         &mut IsTackleTarget,
-        &mut BallPossession,
         &Transform,
         &RigidBodyHandleComponent
     )>,
     mut rigid_body_set: ResMut<RigidBodySet>,
+    mut ball_possession: ResMut<ball::BallPossession>,
 ) {
     for event in events.iter() {
         match event {
@@ -357,7 +362,6 @@ pub fn handle_actor_events(
                     mut actor,
                     _team,
                     _is_tackle_target,
-                    mut ball_possession,
                     transform,
                     rigid_body_handle
                 ) = query.get_mut(*actor_entity).expect("Cannot get actor that was hit!");
@@ -365,12 +369,10 @@ pub fn handle_actor_events(
                 let action = if recovery_time > 0.0 { ActorAction::Recovering(recovery_time) } else { ActorAction::Idle };
                 actor.set_action(action);
 
-                if ball_possession.0 {
+                if ball_possession.has_actor_ball(*actor_entity){
                     match  *other_actor_action {
                         ActorAction::Tackling { x:_, y:_ } => {
-                            ball_possession.0 = false;
-                            let mut other_ball_possession = query.get_component_mut::<BallPossession> (*other_actor_entity).unwrap();
-                            other_ball_possession.0 = true;
+                            ball_possession.set(*other_actor_entity);
                         },
                         _ => {
                             let rb_vel = physics::get_velocity(rigid_body_handle, &mut rigid_body_set).expect("Cannot get velocity information from actor");
@@ -390,7 +392,6 @@ pub fn handle_actor_events(
                     actor,
                     team_target,
                     mut is_tackle_target,
-                    _ball_possession,
                     transform,
                     rigid_body_handle
                 ) in query.iter_mut() {
@@ -416,7 +417,6 @@ pub fn handle_actor_events(
                         mut actor,
                         _team,
                         _is_tackle_target,
-                        _ball_possession,
                         _transform,
                         _rigid_body_handle
                     ) =  query.get_mut(*entity).expect("Player that spawned LookForTackle event no longer exists!");
@@ -431,20 +431,20 @@ pub fn handle_actor_events(
 pub fn change_ball_possession(
     actor: &mut Actor,
     animation: &mut animation::Animation,
-    ball_possession: &mut BallPossession,
-    ball_possession_change: bool,
+    ball_possession: bool,
 ) {
-    ball_possession.0 = ball_possession_change;
     let indexes = match actor.act_action {
         ActorAction::Idle => {
-            Some(get_idle_indexes(ball_possession.0))
+            Some(get_idle_indexes(ball_possession))
         },
         ActorAction::Lookout => {
-            actor.set_action(ActorAction::Idle);
-            Some(get_idle_indexes(ball_possession.0))
+            if ball_possession {
+                actor.set_action(ActorAction::Idle);
+            }
+            Some(get_idle_indexes(ball_possession))
         }
         ActorAction::Running { x: _, y: _ } => {
-            Some(get_running_indexes(ball_possession.0))
+            Some(get_running_indexes(ball_possession))
         },
         _ => None
     };

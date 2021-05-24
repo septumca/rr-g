@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use super:: {
     actor,
+    ball,
     team,
     states,
     utils,
@@ -198,13 +199,15 @@ fn state_changed(
 }
 
 fn selected_actor_changed(
-    query_actor: Query<(Entity, &actor::Actor, &actor::BallPossession), With<actor::Selected>>,
-    mut query_text: Query<&mut Text, With<SelectedText>>
+    query_actor: Query<(Entity, &actor::Actor), With<actor::Selected>>,
+    mut query_text: Query<&mut Text, With<SelectedText>>,
+    ball_possession: Res<ball::BallPossession>
 ) {
     let q_result = query_actor.single();
     let msg = if q_result.is_ok() {
-        let (entity, actor, ball_possession) = q_result.unwrap();
-        format!("Selected actor: {:?}, state: {:?}, has ball: {}", entity, actor.act_action, ball_possession.0)
+        let (entity, actor) = q_result.unwrap();
+        let has_ball = ball_possession.has_actor_ball(entity);
+        format!("Selected actor: {:?}, state: {:?}, has ball: {}", entity, actor.act_action, has_ball)
     } else {
         format!("No actor selected")
     };
