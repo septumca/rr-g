@@ -161,30 +161,33 @@ pub fn process_ai(
         .collect();
 
     for ai_actor_data in ai_actors.iter() {
+        let target_position = player_goalpost_position.clone(); //TODO: determine target location, see above
         if ai_actor_data.role.is_some() {
             continue;
         }
 
-        let b = parry::shape::Ball::new(actor::PLAYER_GUARD_RADIUS);
-        let signum = (player_goalpost_position.x - ai_actor_data.position.x).signum();
+        let b = parry::shape::Ball::new(actor::PLAYER_GUARD_RADIUS); //sometimes ai ends in the player actor guard range regardless so add little bit leaway
+        // let signum = (player_goalpost_position.x - ai_actor_data.position.x).signum();
 
         let mut chosen_movement: Option<Vec2> = None;
         let step = 0.1;
-        let mut act_angle = 0.0;
+        let start_angle = (target_position.y - ai_actor_data.position.y).atan2(target_position.x -  ai_actor_data.position.x);
+        let mut total_increment = 0.0;
 
-        while act_angle < f32::consts::FRAC_PI_2 && chosen_movement.is_none() {
-            let ray_direction = get_rotated_vector(act_angle, signum).normalize() * (actor::PLAYER_RUN_SPEED / round::ROUND_TIME);
+        while total_increment < f32::consts::FRAC_PI_2 && chosen_movement.is_none() {
+            let ray_direction = get_rotated_vector(start_angle + total_increment).normalize() * (actor::PLAYER_RUN_SPEED / round::ROUND_TIME);
             chosen_movement = get_free_vector(&ai_actor_data.position, &player_actors, &b, &ray_direction);
 
-            if chosen_movement.is_none() && act_angle != 0.0 {
-                let ray_direction = get_rotated_vector(-act_angle, signum).normalize() * (actor::PLAYER_RUN_SPEED / round::ROUND_TIME);
+            if chosen_movement.is_none() && total_increment != 0.0 {
+                let ray_direction = get_rotated_vector(-(start_angle + total_increment)).normalize() * (actor::PLAYER_RUN_SPEED / round::ROUND_TIME);
                 chosen_movement = get_free_vector(&ai_actor_data.position, &player_actors, &b, &ray_direction);
             }
-
-            act_angle += step;
+            total_increment += step;
         }
 
         if let Some(chm) = chosen_movement {
+            //in this vector, find one where we don't go to much away from goalpost (e.g. too much up or down)
+
             let chm = ai_actor_data.position + (chm * actor::PLAYER_RUN_SPEED);
             if let Ok(mut actor) = query_actors.q1_mut().get_component_mut::<actor::Actor> (ai_actor_data.entity) {
                 actor.set_action(actor::ActorAction::Running { x: chm.x, y: chm.y });

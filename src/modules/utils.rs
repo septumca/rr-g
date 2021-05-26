@@ -25,6 +25,6 @@ pub fn is_point_in_square(point: &bevy::prelude::Vec2, rect_origin: &bevy::prelu
 }
 
 
-pub fn get_rotated_vector(r: f32, signum: f32) -> Vector2<f32> {
-    Vector2::new(r.cos() * signum, r.sin())
+pub fn get_rotated_vector(r: f32) -> Vector2<f32> {
+    Vector2::new(r.cos(), r.sin())
 }
