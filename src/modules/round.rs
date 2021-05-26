@@ -6,7 +6,7 @@ use super::{
 
 pub struct RoundTimer {}
 
-pub const ROUND_TIME: f32 = 2.0;
+pub const ROUND_TIME: f32 = 1.0;
 
 pub fn start_timer(mut commands: Commands, query: Query<Entity, With<RoundTimer>>) {
     for timer in query.iter() {

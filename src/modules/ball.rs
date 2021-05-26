@@ -7,8 +7,8 @@ use bevy_rapier2d::{
 };
 use super::{actor, animation, collision, matchup, physics, team, utils};
 
+pub const BALL_SPEED: f32 = 300.0;
 pub struct Ball {}
-pub struct BallThrown(Vec2);
 
 pub struct BallPossession {
     actor: Option<Entity>,
@@ -40,10 +40,12 @@ impl BallPossession {
     }
 }
 
+pub struct AirTime(Timer);
+
 pub enum BallEvent {
     Pickup { actor_entity: Entity, ball_entity: Entity },
     Drop { entity: Entity, position: Vec2, velocity_vector: Vec2 },
-    Throw { entity: Entity, position: Vec2, throw_target: Vec2 },
+    Throw { entity: Entity, position: Vec2, throw_target: Vec2, power: f32 },
     WallBounce { ball_entity: Entity },
 }
 
@@ -79,7 +81,7 @@ pub fn add_ball_to_arena(
         team::Team::Away => matchup.ball_away_position
     };
     ball_possession.clear();
-    spawn_ball(&mut commands, &ball_sprite, position, Vec2::ZERO, None);
+    spawn_ball(&mut commands, &ball_sprite, position, Vec2::ZERO, 0.0);
 }
 
 pub fn spawn_ball(
@@ -87,9 +89,9 @@ pub fn spawn_ball(
     ball_sprite: &Res<BallTexture>,
     position: Vec2,
     velocity_vector: Vec2,
-    throw_target: Option<Vec2>,
+    power: f32,
 ) {
-    let linear_damping = if throw_target.is_some() { 0.0 } else { BALL_LINEAR_DAMPING_DROPPED };
+    let linear_damping = if power > 0.0 { 0.0 } else { BALL_LINEAR_DAMPING_DROPPED };
     let e = commands
         .spawn_bundle(SpriteSheetBundle {
             texture_atlas: ball_sprite.0.clone(),
@@ -102,20 +104,20 @@ pub fn spawn_ball(
         .insert(collision::ColliderType::Ball)
         .id();
 
-    if throw_target.is_some() {
-        commands.entity(e).insert(BallThrown(throw_target.unwrap()));
+    if power > 0.0 {
+        commands.entity(e).insert(AirTime(Timer::from_seconds(power, false)));
     }
     physics::create_physics_ball(commands, e, position, velocity_vector, linear_damping);
 }
 
 pub fn update_thrown_ball(
-    query: Query<(&Transform, &BallThrown, &RigidBodyHandleComponent), With<Ball>>,
-    mut rigid_body_set: ResMut<RigidBodySet>
+    mut query: Query<(&mut AirTime, &RigidBodyHandleComponent), With<Ball>>,
+    mut rigid_body_set: ResMut<RigidBodySet>,
+    time: Res<Time>,
 ) {
-    for (transform, ball_thrown, rigid_body_handle) in query.iter() {
-        let d_x = transform.translation.x - ball_thrown.0.x;
-        let d_y = transform.translation.y - ball_thrown.0.y;
-        if d_x.abs() < 10.0 && d_y.abs() < 10.0 {
+    for (mut air_time, rigid_body_handle) in query.iter_mut() {
+        air_time.0.tick(time.delta());
+        if air_time.0.just_finished() {
             physics::set_rb_properties(rigid_body_handle, &mut rigid_body_set,  None, None, Some(BALL_LINEAR_DAMPING_BOUNCED*5.0));
         }
     }
@@ -143,9 +145,9 @@ pub fn handle_ball_events(
                     position.y + norm_vel.y*(utils::TRUE_SPRITE_SIZE/2.0),
                 );
                 let ball_velocity = Vec2::new(velocity_vector.x, velocity_vector.y) * 1.5;
-                spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, None);
+                spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, 0.0);
             },
-            BallEvent::Throw { entity, position, throw_target} => {
+            BallEvent::Throw { entity, position, throw_target, power} => {
                 if let Ok((mut actor, mut animation)) = query_actor.get_mut(entity) {
                     actor::change_ball_possession(&mut actor, &mut animation, false);
                     ball_possession.clear();
@@ -155,8 +157,8 @@ pub fn handle_ball_events(
                     position.x + delta.x*utils::TRUE_SPRITE_SIZE,
                     position.y + delta.y*utils::TRUE_SPRITE_SIZE,
                 );
-                let ball_velocity = Vec2::new(delta.x, delta.y) * 300.0; //TODO: replace with throw power
-                spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, Some(throw_target));
+                let ball_velocity = Vec2::new(delta.x, delta.y) * BALL_SPEED;
+                spawn_ball(&mut commands, &ball_sprite, ball_position, ball_velocity, power);
             },
             BallEvent::Pickup { actor_entity, ball_entity} => {
                 if let Ok((mut actor, mut animation)) = query_actor.get_mut(actor_entity) {

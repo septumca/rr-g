@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_rapier2d::na::Vector2;
 
 use super::{
     round,
@@ -23,7 +24,7 @@ pub fn is_point_in_square(point: &bevy::prelude::Vec2, rect_origin: &bevy::prelu
         point.y < (rect_origin.y + rect_half_size)
 }
 
-#[allow(dead_code)]
-fn get_max_distance_per_round(speed: f32) -> f32 {
-    speed * round::ROUND_TIME * 0.25
+
+pub fn get_rotated_vector(r: f32, signum: f32) -> Vector2<f32> {
+    Vector2::new(r.cos() * signum, r.sin())
 }

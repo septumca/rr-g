@@ -11,10 +11,11 @@ use super::{animation, ai, ball, collision, helpers, physics, team, utils};
 pub const PLAYER_RUN_SPEED: f32 = 100.0;
 const PLAYER_TACKLE_SPEED: f32 = 225.0;
 pub const PLAYER_GUARD_RADIUS: f32 = 60.0;
-const PLAYER_TACKLE_RADIUS: f32 = 120.0;
+pub const PLAYER_TACKLE_RADIUS: f32 = 120.0;
 const PLAYER_RECOVERY_TIME_BUMPED: f32 = 0.3;
 const PLAYER_RECOVERY_TIME_TACKLED: f32 = 0.9;
 const PLAYER_RECOVERY_LINEAR_DAMPING: f32 = 1.5;
+pub const PLAYER_THROWING_POWER: f32 = 1.0;
 
 pub struct ActorTextures {
     red: Handle<TextureAtlas>,
@@ -146,7 +147,6 @@ pub fn spawn_actor(
         })
         .insert(Actor::new())
         .insert(team)
-        // .insert(BallPossession(false))
         .insert(IsTackleTarget(false))
         .insert(animation::Animation::new(vec![0]))
         .insert(animation::AnimationTimer(Timer::from_seconds(1.0/8.0, true)))
@@ -235,6 +235,7 @@ pub fn handle_actors_refresh_action(
                             entity,
                             position: Vec2::new(transform.translation.x, transform.translation.y),
                             throw_target: Vec2::new(x, y),
+                            power: PLAYER_THROWING_POWER,
                         });
                     } else {
                         println!("Wanted to throw non-existing ball!");

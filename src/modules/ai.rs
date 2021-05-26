@@ -1,16 +1,16 @@
+use core::f32;
+
 use bevy::prelude::*;
+use bevy_rapier2d::{na::{Isometry, Isometry2, Point2, Vector2}, rapier::parry::{self, query::{Ray, RayCast}}};
 use rand::prelude::*;
 
-use super::{
-    actor,
-    arena,
-    ball,
-    //helpers,
-    utils};
+use crate::modules::utils::get_rotated_vector;
+
+use super::{actor, arena, ball, helpers, round, team, utils};
 pub struct PlayerControlled {}
 #[derive(Debug)]
 pub struct AiControlled {
-    role: Option<AiRole>
+    pub role: Option<AiRole>
 }
 impl AiControlled {
     pub fn new() -> Self {
@@ -26,9 +26,17 @@ pub enum AiRole {
     Move
 }
 
-type AiActorData = (Entity, Vec2, Option<AiRole>, f32);
-type AiPlayerData = (actor::ActorAction, Vec2, bool);
-
+struct AiActorData {
+    entity: Entity,
+    position: Vec2,
+    role: Option<AiRole>,
+    has_ball: bool,
+}
+struct PlayerActorData {
+    action: actor::ActorAction,
+    position: Vec2,
+    has_ball: bool
+}
 
 pub fn get_closest_from_query(
     ball_position: &Vec3,
@@ -50,25 +58,42 @@ pub fn get_closest_from_query(
     (closest_ai_actor.unwrap(), closest_player_actor.unwrap())
 }
 
+fn get_free_vector(ai_actor_position: &Vec2, player_actors: &Vec<PlayerActorData>, zone: &parry::shape::Ball, ray_direction: &Vector2<f32>) -> Option<Vec2> {
+    let ray = Ray::new(Point2::new(ai_actor_position.x, ai_actor_position.y), *ray_direction);
+    let blocked = player_actors.iter().any(|player_actor_data| {
+        let transform = Isometry2::new(Vector2::new(player_actor_data.position.x, player_actor_data.position.y), 0.0);
+        zone.intersects_ray(&transform, &ray, round::ROUND_TIME)
+    });
 
-fn get_lane_bounds(lane_num: f32, lane_height: f32) -> (f32, f32) {
-    (lane_height * lane_num - utils::WIN_H/2.0, lane_height * (lane_num + 1.0) - utils::WIN_H/2.0)
+    if blocked {
+        None
+    } else {
+        Some(Vec2::new(ray_direction.x, ray_direction.y).normalize())
+    }
 }
 
 pub fn process_ai(
-    // mut commands: Commands,
-    // helper_materials: Res<helpers::HelperMaterials>,
+    mut commands: Commands,
+    helper_materials: Res<helpers::HelperMaterials>,
     mut query_actors: QuerySet<(
         Query<(Entity, &Transform, Option<&AiControlled>, Option<&PlayerControlled>), With<actor::Actor>>,
         Query<(Entity, &mut actor::Actor, &Transform, &mut AiControlled)>,
-        Query<(&actor::Actor, &Transform), With<PlayerControlled>>,
+        Query<(Entity, &actor::Actor, &Transform), With<PlayerControlled>>,
     )>,
     query_ball: Query<&Transform, With<ball::Ball>>,
+    query_goal_posts: QuerySet<(
+        Query<&Transform, (With<arena::GoalPost>, With<AiControlled>)>,
+        Query<&Transform, (With<arena::GoalPost>, With<PlayerControlled>)>,
+    )>,
     ball_possession: Res<ball::BallPossession>,
     arena: Res<arena::Arena>,
 ) {
     let mut rng = thread_rng();
     let ball_transform = query_ball.single();
+
+    let mut player_goalpost_position = Vec2::from(query_goal_posts.q1().single().expect("Cannot get player_goalpost!").translation);
+    let mut ai_goalpost_position = Vec2::from(query_goal_posts.q0().single().expect("Cannot get player_goalpost!").translation);
+
     let mut ai_will_have_ball = false;
     if ball_possession.is_free() && ball_transform.is_ok() {
         let ball_position = ball_transform.unwrap().translation;
@@ -99,109 +124,90 @@ pub fn process_ai(
     }
     let player_has_ball = !ball_possession.is_free() && !ai_will_have_ball;
 
-    //get number of ai actors that don't have assigned role
-    //sort them by their y-axis position/(or role)
-    //split areana into <number of unassigned ai actors> lanes
-    //assign lane to each ai actor
-    //move actor to/in this lane
-    //TODO: this feels little bit braindead, but at least it's something ¯\_( ͡° ͜ʖ ͡°)_/¯
-    let mut ai_actors_vec: Vec<AiActorData> = query_actors
+    //raytracing, start with straight line and gruadually deviate by some margin, find suitable vector
+    //this works lot better, but need to somehow figure out how to steer actor to center of net
+    //(i.e. dont start with 0 rotation but with rotation based on goal post center and then work around that)
+    //instead of goal post center it can be also another target, e.g. some wing position or position near ball carrier
+    let ai_actors: Vec<AiActorData> = query_actors
         .q1_mut()
         .iter_mut()
-        .map(|a| -> AiActorData {
-            (a.0.clone(), Vec2::from(a.2.translation), a.3.role, -1.0)
-        })
-        .collect();
-    //this needs to be at spearate line and cannot be chained directly after collect - because sort_by does sort in place
-    ai_actors_vec.sort_by(|a, b| a.1.y.partial_cmp(&b.1.y).unwrap_or(std::cmp::Ordering::Equal));
-    let ai_actors_vec = ai_actors_vec
-        .iter_mut()
-        .enumerate()
-        .map(|(i, a)| {
-            (a.0, a.1, a.2, i as f32)
-        });
-    let lane_height = arena.height / ai_actors_vec.len() as f32;
-
-    let ai_actors_data: Vec<(AiActorData, Vec<AiPlayerData>)> = ai_actors_vec
-        .into_iter()
-        .map(|a| -> (AiActorData, Vec<AiPlayerData>) {
-            let lane_num = a.3;
-
-            let (y_min, y_max) = get_lane_bounds(lane_num, lane_height);
-            let player_data = query_actors
-                .q2()
-                .iter()
-                .filter_map(|(player_actor, player_transform)| {
-                    let position = Vec2::from(player_transform.translation);
-                    //(possibliy based on other players in same lane - or start arena division based on highest y from players actor)
-                    let mut has_ball = false;
-                    if let Some(entity_with_ball) = ball_possession.get() {
-                        has_ball = entity_with_ball == a.0
-                    }
-                    if position.y > y_min && position.y < y_max {
-                        Some((player_actor.act_action, position, has_ball))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            (a, player_data)
-        })
-        .collect();
-
-    //currently only difference between having and not having possession, is how much would ai move in x axis
-    for ((ai_entity, ai_position, ai_role, lane_num), player_data) in ai_actors_data {
-        if ai_role.is_none() {
-            let (y_min, y_max) = get_lane_bounds(lane_num, lane_height);
-
-            let mut target_player_position = None;
-            for (_player_action, player_position, _has_ball) in player_data.into_iter() {
-                if target_player_position.is_none() || ai_position.distance(player_position) < ai_position.distance(target_player_position.unwrap()) {
-                    target_player_position = Some(player_position);
-                }
+        .map(|(entity, _actor, transform, ai)| -> AiActorData {
+            let mut has_ball = false;
+            if let Some(entity_with_ball) = ball_possession.get() {
+                has_ball = entity_with_ball == entity;
             }
-            let target_player_position = target_player_position.unwrap_or(Vec2::new(
-                if player_has_ball { ai_position.x - 100.0 } else { ai_position.x + 100.0 }, //TODO determine values based on AI goal post direction
-                ai_position.y
-            ));
+            AiActorData {
+                entity,
+                position: Vec2::from(transform.translation),
+                role: ai.role,
+                has_ball,
+            }
+        })
+        .collect();
+    let player_actors: Vec<PlayerActorData> = query_actors
+        .q2()
+        .iter()
+        .map(|(entity, actor, transform)| -> PlayerActorData {
+            let mut has_ball = false;
+            if let Some(entity_with_ball) = ball_possession.get() {
+                has_ball = entity_with_ball == entity;
+            }
+            PlayerActorData {
+                action: actor.act_action,
+                position: Vec2::from(transform.translation),
+                has_ball
+            }
+        })
+        .collect();
 
-            let delta_signum = (target_player_position - ai_position).x.signum();
-            let (range_x_l, range_x_r) =  if player_has_ball {
-                //when don't have a ball possession then move to position to try to mantain distance from actors in same lane
-                //but, should have some system in place to assume that actors in lane would move forward, and to determine to meet them halfway, but stop sooner to be able to tackle them
-                (target_player_position.x, target_player_position.x - (20.0*delta_signum))
-            } else {
-                //when do have ball possession, move forwards
-                //(by not having any actor player in ai actor lane, or again based on player actor y, determine how much would be viable to move forward)
-                (target_player_position.x - (20.0*delta_signum), target_player_position.x + (40.0*delta_signum))
-            };
-            let x_min = if range_x_l > range_x_r { range_x_r } else { range_x_l };
-            let x_max = if range_x_l > range_x_r { range_x_l } else { range_x_r };
-            let y = rng.gen_range(y_min..y_max);
-            let x = rng.gen_range(x_min..x_max);
+    for ai_actor_data in ai_actors.iter() {
+        if ai_actor_data.role.is_some() {
+            continue;
+        }
 
-            let (_entity, mut ai_actor, _transform, mut ai) = query_actors.q1_mut().get_mut(ai_entity).unwrap();
-            ai_actor.queue_action(actor::ActorAction::Running { x: x, y: y });
-            ai.role = Some(AiRole::Move);
+        let b = parry::shape::Ball::new(actor::PLAYER_GUARD_RADIUS);
+        let signum = (player_goalpost_position.x - ai_actor_data.position.x).signum();
+
+        let mut chosen_movement: Option<Vec2> = None;
+        let step = 0.1;
+        let mut act_angle = 0.0;
+
+        while act_angle < f32::consts::FRAC_PI_2 && chosen_movement.is_none() {
+            let ray_direction = get_rotated_vector(act_angle, signum).normalize() * (actor::PLAYER_RUN_SPEED / round::ROUND_TIME);
+            chosen_movement = get_free_vector(&ai_actor_data.position, &player_actors, &b, &ray_direction);
+
+            if chosen_movement.is_none() && act_angle != 0.0 {
+                let ray_direction = get_rotated_vector(-act_angle, signum).normalize() * (actor::PLAYER_RUN_SPEED / round::ROUND_TIME);
+                chosen_movement = get_free_vector(&ai_actor_data.position, &player_actors, &b, &ray_direction);
+            }
+
+            act_angle += step;
+        }
+
+        if let Some(chm) = chosen_movement {
+            let chm = ai_actor_data.position + (chm * actor::PLAYER_RUN_SPEED);
+            if let Ok(mut actor) = query_actors.q1_mut().get_component_mut::<actor::Actor> (ai_actor_data.entity) {
+                actor.set_action(actor::ActorAction::Running { x: chm.x, y: chm.y });
+            }
         }
     }
 
-    // for (entity, actor, transform, _ai) in query_actors.q1_mut().iter_mut() {
-    //     match actor.act_action {
-    //         actor::ActorAction::Running { x, y } => {
-    //             let he = helpers::spawn_movement_helper(
-    //                 &mut commands,
-    //                 &helper_materials,
-    //                 Vec2::new(x, y),
-    //                 Vec2::new(transform.translation.x, transform.translation.y),
-    //                 entity.clone(),
-    //                 helpers::HelperType::Run
-    //             );
-    //             commands.entity(he).insert(AiControlled::new());
-    //         }
-    //         _ => ()
-    //     };
-    // }
+    for (entity, actor, transform, _ai) in query_actors.q1_mut().iter_mut() {
+        match actor.act_action {
+            actor::ActorAction::Running { x, y } => {
+                let he = helpers::spawn_movement_helper(
+                    &mut commands,
+                    &helper_materials,
+                    Vec2::new(x, y),
+                    Vec2::new(transform.translation.x, transform.translation.y),
+                    entity.clone(),
+                    helpers::HelperType::Run
+                );
+                commands.entity(he).insert(AiControlled::new());
+            }
+            _ => ()
+        };
+    }
 
     //what about throws? if we somehow determine that it would be benefical to throw then throw
     //(by comparing movements across ai actors, if there is possibility that some other ai actor would be able to move more forward, then pass the ball)

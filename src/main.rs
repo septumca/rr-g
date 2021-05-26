@@ -17,7 +17,7 @@ fn setup(
     mut configuration: ResMut<RapierConfiguration>,
 ) {
     configuration.gravity = Vector::y() * 0.0;
-    configuration.time_dependent_number_of_timesteps = true;
+    // configuration.time_dependent_number_of_timesteps = true;
 
     helpers::setup_helper_materials(&mut commands, &asset_server, &mut materials);
     actor::setup_actor_sprites(&mut commands, &asset_server, &mut texture_atlases);
@@ -26,7 +26,7 @@ fn setup(
     arena::setup_arena_materials(&mut commands, &mut materials);
     commands.insert_resource(actor::CurrentControlMode(actor::ControlMode::Run));
     commands.insert_resource(ball::BallPossession::new());
-    commands.insert_resource(matchup::Matchup::new(Vec2::new(-100.0, 0.0), Vec2::new(100.0, 0.0)));
+    commands.insert_resource(matchup::Matchup::new(Vec2::new(100.0, 0.0), Vec2::new(100.0, 0.0)));
 }
 
 fn initialize_game(
@@ -39,14 +39,8 @@ fn initialize_game(
     commands.spawn_bundle(UiCameraBundle::default());
 
     let actors: Vec<(Entity, Vec2, team::Team)> = vec![
-        (Vec2::new(-200.0, 100.0), Vec2::new(-100.0, -150.0),  team::Team::Home),
-        (Vec2::new(-100.0, 100.0), Vec2::new(-150.0, -50.0),  team::Team::Home),
-        (Vec2::new(-150.0, 100.0), Vec2::new(-150.0, 50.0),  team::Team::Home),
-        (Vec2::new(-50.0, 100.0), Vec2::new(-100.0, 150.0),  team::Team::Home),
-        (Vec2::new(200.0, 100.0), Vec2::new(100.0, -150.0),  team::Team::Away),
-        (Vec2::new(150.0, 100.0), Vec2::new(150.0, -50.0),  team::Team::Away),
-        (Vec2::new(100.0, 100.0), Vec2::new(150.0, 50.0),  team::Team::Away),
-        (Vec2::new(50.0, 100.0), Vec2::new(100.0, 150.0),  team::Team::Away),
+        (Vec2::new(-50.0, 100.0), Vec2::new(-150.0, 0.0),  team::Team::Home),
+        (Vec2::new(50.0, 100.0), Vec2::new(150.0, 0.0),  team::Team::Away),
     ].iter().map(|(initial_position, target_position, team)| -> (Entity, Vec2, team::Team) {
         (
             actor::spawn_actor(&mut commands, &actor_sprites, *initial_position, *team, *team == team::Team::Away),
@@ -56,7 +50,7 @@ fn initialize_game(
     }).collect();
 
     matchup_res.add_actors(actors);
-    arena::create_simple(&mut commands, &arena_materials, utils::WIN_W, utils::WIN_H - ui::UI_SIZE, 0.0, ui::UI_SIZE);
+    arena::create_simple(&mut commands, &arena_materials, utils::WIN_W, utils::WIN_H - ui::UI_SIZE, 0.0, ui::UI_SIZE, team::Team::Away);
 }
 
 fn main() {

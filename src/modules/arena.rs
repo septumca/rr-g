@@ -1,11 +1,6 @@
 use bevy::prelude::*;
 
-use super::{
-    collision,
-    physics,
-    team,
-    utils,
-};
+use super::{ai, collision, physics, team, utils};
 
 
 pub struct Arena {
@@ -13,6 +8,7 @@ pub struct Arena {
     pub height: f32,
 }
 pub struct ArenaWall {}
+#[derive(PartialEq)]
 pub struct GoalPost {
     pub team: team::Team
 }
@@ -58,6 +54,7 @@ pub fn spawn_goal_post(
     commands: &mut Commands,
     arena_materials: &Res<ArenaMaterials>,
     team: team::Team,
+    is_player_controller: bool,
     x: f32, y: f32, w: f32, h: f32
 ) {
     let material = match team {
@@ -74,7 +71,13 @@ pub fn spawn_goal_post(
     .insert(collision::ColliderType::GoalPost)
     .id();
 
-physics::create_physics_goalpost(commands, gp_entity, Vec2::new(x + w/2.0, y - h/2.0), w, h);
+    if is_player_controller {
+        commands.entity(gp_entity).insert(ai::AiControlled { role: None });
+    } else {
+        commands.entity(gp_entity).insert(ai::PlayerControlled {});
+    }
+
+    physics::create_physics_goalpost(commands, gp_entity, Vec2::new(x + w/2.0, y - h/2.0), w, h);
 }
 
 pub fn create_simple(
@@ -84,6 +87,7 @@ pub fn create_simple(
     h: f32,
     offset_x: f32,
     offset_y: f32,
+    player_team: team::Team,
 ) {
     let wall_thickness = 20.0;
     let goal_post_size = 100.0;
@@ -102,14 +106,14 @@ pub fn create_simple(
     let mut y = top - wall_thickness;
     spawn_wall(commands, arena_materials, left, y, wall_thickness, vertical_section_size); // left upper section above goalpost
     y -= vertical_section_size;
-    spawn_goal_post(commands, arena_materials, team::Team::Home, left, y, wall_thickness, goal_post_size);
+    spawn_goal_post(commands, arena_materials, team::Team::Home, team::Team::Home == player_team, left, y, wall_thickness, goal_post_size);
     y -= goal_post_size;
     spawn_wall(commands, arena_materials, left, y, wall_thickness, vertical_section_size); // left lower section below goalpost
 
     y = top - wall_thickness;
     spawn_wall(commands, arena_materials, right, y, wall_thickness, vertical_section_size); // right upper section above goalpost
     y -= vertical_section_size;
-    spawn_goal_post(commands, arena_materials, team::Team::Away, right, y, wall_thickness, goal_post_size);
+    spawn_goal_post(commands, arena_materials, team::Team::Away, team::Team::Away == player_team, right, y, wall_thickness, goal_post_size);
     y -= goal_post_size;
     spawn_wall(commands, arena_materials, right, y, wall_thickness, vertical_section_size); // right lower section below goalpost
 }
