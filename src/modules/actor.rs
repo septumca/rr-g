@@ -15,7 +15,7 @@ pub const PLAYER_TACKLE_RADIUS: f32 = 120.0;
 const PLAYER_RECOVERY_TIME_BUMPED: f32 = 0.3;
 const PLAYER_RECOVERY_TIME_TACKLED: f32 = 0.9;
 const PLAYER_RECOVERY_LINEAR_DAMPING: f32 = 1.5;
-pub const PLAYER_THROWING_POWER: f32 = 1.0;
+pub const PLAYER_THROWING_POWER: f32 = 0.5;
 
 pub struct ActorTextures {
     red: Handle<TextureAtlas>,
@@ -155,9 +155,9 @@ pub fn spawn_actor(
         .id();
 
     if is_player_controlled {
-        commands.entity(e).insert(ai::AiControlled::new());
-    } else {
         commands.entity(e).insert(ai::PlayerControlled {});
+    } else {
+        commands.entity(e).insert(ai::AiControlled::new(ai::AiFocus::GuardBallCarrier, ai::AiFocus::DefendGoalPost));
     }
     physics::create_physics_actor(commands, e, position);
 
@@ -176,7 +176,8 @@ pub fn after_round_reset(
 ) {
     for (entity, mut actor, mut is_tackle_target) in query.iter_mut() {
         match actor.act_action {
-            ActorAction::Running { x: _, y: _ } | ActorAction::Tackling { x: _, y: _ } | ActorAction::Idle => {
+            //actor will reset action only if running - if he was running at end of the turn he can tackle next round
+            ActorAction::Running { x: _, y: _ } => {
                 let has_ball = ball_possession.has_actor_ball(entity);
                 actor.set_action(if has_ball { ActorAction::Idle } else { ActorAction::Lookout });
             },

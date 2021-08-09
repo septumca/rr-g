@@ -1,10 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier2d::na::Vector2;
 
-use super::{
-    round,
-};
-
 pub const WIN_W: f32 = 800.0;
 pub const WIN_H: f32 = 600.0;
 pub const SPRITE_SIZE: f32 = 32.0;

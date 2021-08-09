@@ -7,7 +7,7 @@ use bevy_rapier2d::{
 };
 use super::{actor, animation, collision, matchup, physics, team, utils};
 
-pub const BALL_SPEED: f32 = 300.0;
+pub const BALL_SPEED: f32 = 250.0;
 pub struct Ball {}
 
 pub struct BallPossession {

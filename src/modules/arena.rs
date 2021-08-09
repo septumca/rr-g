@@ -6,6 +6,10 @@ use super::{ai, collision, physics, team, utils};
 pub struct Arena {
     pub width: f32,
     pub height: f32,
+    pub top: f32,
+    pub bottom: f32,
+    pub left: f32,
+    pub right: f32,
 }
 pub struct ArenaWall {}
 #[derive(PartialEq)]
@@ -72,9 +76,9 @@ pub fn spawn_goal_post(
     .id();
 
     if is_player_controller {
-        commands.entity(gp_entity).insert(ai::AiControlled { role: None });
-    } else {
         commands.entity(gp_entity).insert(ai::PlayerControlled {});
+    } else {
+        commands.entity(gp_entity).insert(ai::AiControlled::default());
     }
 
     physics::create_physics_goalpost(commands, gp_entity, Vec2::new(x + w/2.0, y - h/2.0), w, h);
@@ -98,7 +102,14 @@ pub fn create_simple(
     let bottom = top - h + wall_thickness;
     let vertical_section_size = (utils::WIN_H - offset_y - 2.0*wall_thickness - goal_post_size) / 2.0;
 
-    commands.insert_resource(Arena { width: w, height: h });
+    commands.insert_resource(Arena {
+        width: w,
+        height: h,
+        left: left + wall_thickness,
+        right: right,
+        top: top - wall_thickness,
+        bottom: bottom,
+    });
 
     spawn_wall(commands, arena_materials, left, top, utils::WIN_W, wall_thickness); // top horizontal secion
     spawn_wall(commands, arena_materials, left, bottom, utils::WIN_W, wall_thickness); // bottom horizontal secion

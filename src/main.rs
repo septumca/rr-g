@@ -37,20 +37,23 @@ fn initialize_game(
 ) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
+    let player_team = team::Team::Home;
 
     let actors: Vec<(Entity, Vec2, team::Team)> = vec![
         (Vec2::new(-50.0, 100.0), Vec2::new(-150.0, 0.0),  team::Team::Home),
+        (Vec2::new(-85.0, 100.0), Vec2::new(-150.0, 50.0),  team::Team::Home),
         (Vec2::new(50.0, 100.0), Vec2::new(150.0, 0.0),  team::Team::Away),
+        (Vec2::new(80.0, 100.0), Vec2::new(150.0, 50.0),  team::Team::Away),
     ].iter().map(|(initial_position, target_position, team)| -> (Entity, Vec2, team::Team) {
         (
-            actor::spawn_actor(&mut commands, &actor_sprites, *initial_position, *team, *team == team::Team::Away),
+            actor::spawn_actor(&mut commands, &actor_sprites, *initial_position, *team, *team == player_team),
             target_position.clone(),
             team.clone()
         )
     }).collect();
 
     matchup_res.add_actors(actors);
-    arena::create_simple(&mut commands, &arena_materials, utils::WIN_W, utils::WIN_H - ui::UI_SIZE, 0.0, ui::UI_SIZE, team::Team::Away);
+    arena::create_simple(&mut commands, &arena_materials, utils::WIN_W, utils::WIN_H - ui::UI_SIZE, 0.0, ui::UI_SIZE, player_team);
 }
 
 fn main() {
